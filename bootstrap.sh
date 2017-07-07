@@ -149,7 +149,7 @@ else
     cat > ../configure-qemu  <<EOF
 "$SCRIPT_PATH/qemu/configure" \
     --prefix="$INSTALL_PATH" \
-    --target-list="arm-libtinycode x86_64-libtinycode mips-libtinycode arm-linux-user x86_64-linux-user mips-linux-user" \
+    --target-list="arm-libtinycode x86_64-libtinycode mips-libtinycode arm-linux-user x86_64-linux-user mips-linux-user i386-libtinycode i386-linux-user" \
     --enable-debug \
     --disable-werror \
     --extra-cflags="-ggdb -O0" \
@@ -185,6 +185,7 @@ else
     "$SCRIPT_PATH/revamb-tools/x86-64/prepare.sh"
     "$SCRIPT_PATH/revamb-tools/mips/prepare.sh"
     "$SCRIPT_PATH/revamb-tools/arm/prepare.sh"
+    "$SCRIPT_PATH/revamb-tools/i386/prepare.sh"
 
     cd ..
 
@@ -222,6 +223,7 @@ cmake "$SCRIPT_PATH/revamb" \
       -DLLVM_DIR="$INSTALL_PATH/share/llvm/cmake" \
       -DC_COMPILER_x86_64="$INSTALL_PATH/usr/x86_64-pc-linux-gnu/x86_64-gentoo-linux-musl/gcc-bin/4.9.3/x86_64-gentoo-linux-musl-gcc" \
       -DC_COMPILER_mips="$INSTALL_PATH/usr/x86_64-pc-linux-gnu/mips-unknown-linux-musl/gcc-bin/5.3.0/mips-unknown-linux-musl-gcc" \
+      -DC_COMPILER_i386="$INSTALL_PATH/usr/x86_64-pc-linux-gnu/i386-gentoo-linux-musl/gcc-bin/4.9.3/i386-gentoo-linux-musl-gcc" \
       -DC_COMPILER_arm="$INSTALL_PATH/usr/x86_64-pc-linux-gnu/armv7a-hardfloat-linux-uclibceabi/gcc-bin/4.9.3/armv7a-hardfloat-linux-uclibceabi-gcc"
 EOF
     bash ../configure-revamb
