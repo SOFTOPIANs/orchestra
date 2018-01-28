@@ -186,6 +186,7 @@ else
     "$SCRIPT_PATH/revamb-tools/mips/prepare.sh"
     "$SCRIPT_PATH/revamb-tools/arm/prepare.sh"
     "$SCRIPT_PATH/revamb-tools/i386/prepare.sh"
+    "$SCRIPT_PATH/revamb-tools/common/prepare.sh"
 
     cd ..
 
@@ -226,10 +227,13 @@ cmake "$SCRIPT_PATH/revamb" \
       -DC_COMPILER_i386="$INSTALL_PATH/usr/x86_64-pc-linux-gnu/i386-gentoo-linux-musl/gcc-bin/4.9.3/i386-gentoo-linux-musl-gcc" \
       -DC_COMPILER_arm="$INSTALL_PATH/usr/x86_64-pc-linux-gnu/armv7a-hardfloat-linux-uclibceabi/gcc-bin/4.9.3/armv7a-hardfloat-linux-uclibceabi-gcc"
 EOF
-    bash ../configure-revamb
-    make -j"$JOBS"
-    make install
-    ctest -j"$JOBS"
+    (
+        source "$SCRIPT_PATH/environment"
+        bash ../configure-revamb
+        make -j"$JOBS"
+        make install
+        ctest -j"$JOBS"
+    )
 
     cd ..
 
