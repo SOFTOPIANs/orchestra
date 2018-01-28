@@ -213,11 +213,15 @@ if [ ! -e "$INSTALL_PATH/usr/x86_64-gentoo-linux-musl/usr/lib/libc.a" ]; then
 fi
 
 CHOSEN_CONFIG="${CHOSEN_CONFIG:-default}"
-echo "Installing x86-64 musl $CHOSEN_CONFIG"
-pushd "musl/build-$CHOSEN_CONFIG" >& /dev/null
-cd musl-*
-make install
-popd >& /dev/null
+if [ -e "musl/build-$CHOSEN_CONFIG" ]; then
+
+    echo "Installing x86-64 musl $CHOSEN_CONFIG"
+    pushd "musl/build-$CHOSEN_CONFIG" >& /dev/null
+    cd musl-*
+    make install
+    popd >& /dev/null
+
+fi
 
 if [ ! -e "$INSTALL_PATH/usr/x86_64-pc-linux-gnu/x86_64-gentoo-linux-musl/gcc-bin/4.9.3/x86_64-gentoo-linux-musl-g++" ]; then
 

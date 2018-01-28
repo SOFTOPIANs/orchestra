@@ -203,11 +203,15 @@ if [ ! -e "$INSTALL_PATH/usr/mips-unknown-linux-musl/usr/lib/libc.a" ]; then
 fi
 
 CHOSEN_CONFIG="${CHOSEN_CONFIG:-default}"
-echo "Installing MIPS musl $CHOSEN_CONFIG"
-pushd "musl/build-$CHOSEN_CONFIG" >& /dev/null
-cd musl-*
-make install
-popd >& /dev/null
+if [ -e "musl/build-$CHOSEN_CONFIG" ]; then
+
+    echo "Installing MIPS musl $CHOSEN_CONFIG"
+    pushd "musl/build-$CHOSEN_CONFIG" >& /dev/null
+    cd musl-*
+    make install
+    popd >& /dev/null
+
+fi
 
 if [ ! -e "$INSTALL_PATH/usr/x86_64-pc-linux-gnu/mips-unknown-linux-musl/gcc-bin/5.3.0/mips-unknown-linux-musl-g++" ]; then
 

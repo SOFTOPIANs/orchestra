@@ -207,11 +207,15 @@ if [ ! -e "$INSTALL_PATH/usr/armv7a-hardfloat-linux-uclibceabi/usr/lib/libc.a" ]
 fi
 
 CHOSEN_CONFIG="${CHOSEN_CONFIG:-default}"
-echo "Installing arm uClibc $CHOSEN_CONFIG"
-pushd "uclibc/build-$CHOSEN_CONFIG" >& /dev/null
-cd uClibc-*
-make -j"$JOBS" DESTDIR="$INSTALL_PATH/usr/armv7a-hardfloat-linux-uclibceabi" install
-popd >& /dev/null
+if [ -e "uclibc/build-$CHOSEN_CONFIG" ]; then
+
+    echo "Installing arm uClibc $CHOSEN_CONFIG"
+    pushd "uclibc/build-$CHOSEN_CONFIG" >& /dev/null
+    cd uClibc-*
+    make -j"$JOBS" DESTDIR="$INSTALL_PATH/usr/armv7a-hardfloat-linux-uclibceabi" install
+    popd >& /dev/null
+
+fi
 
 if [ ! -e "$INSTALL_PATH/usr/x86_64-pc-linux-gnu/armv7a-hardfloat-linux-uclibceabi/gcc-bin/4.9.3/armv7a-hardfloat-linux-uclibceabi-g++" ]; then
 
