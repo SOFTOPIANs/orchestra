@@ -18,8 +18,10 @@ help-variables:
 # $(2): default value
 # $(3): description
 define option
+$(strip
 $(eval OPTIONS += $(1))
 $(eval $(1) ?= $(2))
 $(eval $(1)_DESCRIPTION := $(3))
 $(eval $(1)_DEFAULT := $(2))
+)
 endef

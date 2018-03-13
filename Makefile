@@ -124,6 +124,7 @@ $(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(call option,LIBC_CONFIG_$(call target-to
 
 # $(1): target prefix for toolchain
 define prepare-for-toolchain
+$(strip
 $(eval TOOLCHAIN := $(1))
 $(eval TMP := $(call target-to-prefix,$(1)))
 $(eval TRIPLE := $($(TMP)_TRIPLE))
@@ -139,6 +140,7 @@ $(eval CFLAGS_FOR_TARGET := $($(TMP)_CFLAGS_FOR_TARGET))
 $(eval MUSL_CFLAGS := $($(TMP)_MUSL_CFLAGS))
 $(eval MUSL_LIBCC := $($(TMP)_MUSL_LIBCC))
 $(eval DEPS := $($(TMP)_DEPS))
+)
 endef
 
 $(call option,X86_64_TRIPLE,x86_64-gentoo-linux-musl)
