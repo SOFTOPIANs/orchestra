@@ -11,8 +11,8 @@ COMMA := ,
 # * CI
 
 # Make sure all is the default build target, we will define it at the end
-.PHONY: all
-all:
+.PHONY: help
+help:
 
 # Include infrastructure files
 # ============================
@@ -278,3 +278,31 @@ clean:
 	rm -rf $(BUILD_PATH)/
 	rm -rf $(INSTALL_PATH)/
 	rm -rf $(ARCHIVE_PATH)/
+
+.PHONY: help
+help:
+	@echo 'Welcome to the orchestra build system.'
+	@echo
+	@echo 'orchestra enables you to clone and download all the repositories necessary for rev.ng (such as our version of QEMU and LLVM, but also the core project itself, revamb).'
+	@echo 'Moreover, orchestra will also configure, build and install them for you.'
+	@echo 'By default, the build will take place in the `build/` directory and the files will be installed in the `root/` directory, so no root permissions are required.'
+	@echo
+	@echo 'The repositories, by default, will be cloned from the same git namespace as the current one (but you can change this, run `make help-variables` and check out the `REMOTES` and `REMOTES_BASE_URL` options).'
+	@echo
+	@echo 'By default orchestra will build all the available toolchains and all the other components required by rev.ng. To do this, run:'
+	@echo
+	@echo '    make all'
+	@echo
+	@echo 'If you are interested only in working (and running tests) exclusively for a single architecture (e.g., MIPS), instead of running `make all`, run:'
+	@echo
+	@echo '    make toolchain/mips revamb'
+	@echo
+	@echo 'To ensure everything is working properly, run:'
+	@echo
+	@echo '    make test-revamb'
+	@echo
+	@echo 'For further information on the components that can be built and further customization options, run:'
+	@echo
+	@echo '    make help-variables'
+	@echo '    make help-components'
+	@echo
