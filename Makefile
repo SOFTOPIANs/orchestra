@@ -4,6 +4,9 @@
 .SUFFIXES:
 MAKEFLAGS += -r
 COMMA := ,
+SPACE :=
+SPACE +=
+SHELL := /bin/bash -e
 
 # TODO:
 #
@@ -239,7 +242,7 @@ environment:
 # $(2): build path
 define do-configure-revamb
 	mkdir -p "$(2)"
-	source $(shell pwd)/environment; \
+	source $(PWD)/environment; \
 	cd "$(2)"; \
 	cmake "$(1)" \
 	      -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
@@ -260,12 +263,16 @@ endef
 
 # $(1): source path
 define do-test-revamb
-	source $(shell pwd)/environment; \
+	source $(PWD)/environment; \
 	cd "$(1)"; \
 	ctest -j$(JOBS)
 endef
 
 $(eval $(call simple-cmake-component,revamb,$(LLVM_INSTALL_TARGET_FILE) $(QEMU_INSTALL_TARGET_FILE) $(BOOST_INSTALL_TARGET_FILE) environment | $(TOOLCHAIN_INSTALL_TARGET_FILE)))
+
+# Binaries
+binary-archives:
+	$(call clone,binary-archives,$(BINARY_ARCHIVE_PATH))
 
 # Default targets
 # ===============
@@ -306,3 +313,9 @@ help:
 	@echo '    make help-variables'
 	@echo '    make help-components'
 	@echo
+
+.PHONY: create-binary-archive
+create-binary-archive: $(foreach COMPONENT,$(COMPONENTS),create-binary-archive-$($(COMPONENT)_TARGET_NAME))
+
+.PHONY: create-binary-archive-all
+create-binary-archive-all: $(foreach COMPONENT,$(COMPONENTS),$(foreach BUILD,$($(COMPONENT)_BUILDS),create-binary-archive-$($(BUILD)_TARGET_NAME)))

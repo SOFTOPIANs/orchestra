@@ -8,3 +8,4 @@ compiler-rt/
 qemu/
 revamb/
 toolchain/
+binary-archives/

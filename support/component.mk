@@ -1,16 +1,32 @@
+define platform-name
+$(subst $(SPACE),-,$(subst _,-,$(call lc,$(shell uname -ms))))
+endef
+
+# $(1): string
+define lc
+$(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,$(subst L,l,$(subst M,m,$(subst N,n,$(subst O,o,$(subst P,p,$(subst Q,q,$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,$(subst X,x,$(subst Y,y,$(subst Z,z,$(1)))))))))))))))))))))))))))
+endef
+
+# $(1): string
+define uc
+$(subst a,A,$(subst b,B,$(subst c,C,$(subst d,D,$(subst e,E,$(subst f,F,$(subst g,G,$(subst h,H,$(subst i,I,$(subst j,J,$(subst k,K,$(subst l,L,$(subst m,M,$(subst n,N,$(subst o,O,$(subst p,P,$(subst q,Q,$(subst r,R,$(subst s,S,$(subst t,T,$(subst u,U,$(subst v,V,$(subst w,W,$(subst x,X,$(subst y,Y,$(subst z,Z,$(1)))))))))))))))))))))))))))
+endef
+
 $(call option,JOBS,$(shell nproc || echo 1),Number of concurrent jobs)
 $(call option,SOURCE_PATH,$(PWD),Path for sources)
 $(call option,BUILD_PATH,$(PWD)/build,Path for build directories)
 $(call option,INSTALL_PATH,$(PWD)/root,Path for installing components)
-$(call option,ARCHIVE_PATH,$(PWD)/archives,Path for storing archives)
+$(call option,PLATFORM_NAME,$(call platform-name),Name of the platform used to archive binaries)
+$(call option,BINARY_ARCHIVE_PATH,$(PWD)/binary-archives,Path for storing and fetching binary archives)
 $(call option,SOURCE_ARCHIVE_PATH,$(PWD)/source-archives,Path for caching source archives)
 $(call option,PATCH_PATH,$(PWD)/patches,Path containing patches for components)
 $(call option,REMOTES,$(shell ./get-remote),Space-separated list of remotes of the current repository to try, one after the other, while cloning sources)
-$(call option,REMOTES_BASE_URL,$(foreach REMOTE,$(REMOTES),$(shell dirname $$(git config --get remote.$(REMOTE).url))),Space-separated list of repository base URLs to try, one after the other, while cloning sources)
+$(call option,REMOTES_BASE_URL,$(foreach REMOTE,$(REMOTES),$(dir $(shell git config --get remote.$(REMOTE).url))),Space-separated list of repository base URLs to try, one after the other, while cloning sources)
 $(call option,BRANCHES,develop master,Space-separated list of git refs such as branches to try to checkout after the sources have been cloned)
 
+# $(shell echo $(1) | tr a-z- A-Z_)
 define target-to-prefix
-$(shell echo $(1) | tr a-z- A-Z_)
+$(subst -,_,$(call uc,$(1)))
 endef
 
 # $(1): build target name
@@ -32,21 +48,61 @@ endef
 help-components:
 	$(foreach COMPONENT,$(COMPONENTS),$(call print-component,$(COMPONENT)))
 
-# TODO: add suffix for commit in the file name
-# $(1): target to archive
-# $(2): archive name
-define create-archive
-	mv "$(INSTALL_PATH)/" "$(INSTALL_PATH)-tmp/"
-	make $(1)
-	tar caf $(ARCHIVES_PATH)/$(2) -C "$(INSTALL_PATH)" --owner=0 --group=0 .
-	rm -rf "$(INSTALL_PATH)"
-	mv "$(INSTALL_PATH)-tmp/" "$(INSTALL_PATH)/"
-endef
-
 # $(1): file to touch
 define touch
-	mkdir -p $(shell dirname $(1))
+	mkdir -p $(dir $(1))
 	touch $(1)
+endef
+
+define string-to-suffix
+$(subst /,-,$(1))
+endef
+
+#
+# Find the appropriate remote to employ for the givent component
+#
+# $(1): remote-relative path of the repository to clone
+define find-remote
+$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),git ls-remote $(REMOTE_BASE_URL)$(1) && echo $(REMOTE_BASE_URL)$(1) || ) false
+endef
+
+#
+# Find the appropriate branch to employ for the given remote
+#
+# $(1): remote
+define find-branch
+$(foreach BRANCH,$(BRANCHES),git ls-remote -h --refs $$$$($(1)) | grep 'refs/heads/'"$(BRANCH)"'$' && echo "$(BRANCH)" || ) true
+endef
+
+# $(1): target name
+define find-target-branch
+$(call find-branch,$(call find-remote,$(1)))
+endef
+
+# $(1): target name
+define binary-archive-directory
+$(BINARY_ARCHIVE_PATH)/$(PLATFORM_NAME)/$(1)
+endef
+
+# $(1): target name
+# $(2): suffix
+define binary-archive-name
+$(call binary-archive-directory,$(1))/$(2).tar.gz
+endef
+
+# $(1): target to archive
+# $(2): source path
+define create-binary-archive
+	find "$(INSTALL_PATH)/" | xargs -n10 touch -d '1980-01-01 00:00:00'
+	make install-$(1)
+	touch -d '1980-01-01 00:00:00' "$(INSTALL_PATH)/"
+	$(eval TMP_ARCHIVE_DIRECTORY := $(call binary-archive-directory,$(1)))
+	mkdir -p "$(TMP_ARCHIVE_DIRECTORY)"
+	touch "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz"
+	cd "$(INSTALL_PATH)" && find -L . -newer "$(INSTALL_PATH)" -print0 | tar caf "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz" --no-recursion --owner=0 --group=0 --null --files-from=-
+	if test -n "$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD)"; then \
+	  ln -f -s "$$$$(git -C '$(2)' rev-parse HEAD).tar.gz" "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD | tr '/' '-').tar.gz"; \
+	fi
 endef
 
 # $(1): build path
@@ -62,7 +118,7 @@ endef
 # $(1): remote-relative path of the repository to clone
 # $(2): clone destination path
 define clone
-	$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),git clone $(REMOTE_BASE_URL)/$(1) $(2) || ) false
+	$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),GIT_LFS_SKIP_SMUDGE=1 git clone $(REMOTE_BASE_URL)/$(1) $(2) || ) false
 	$(foreach BRANCH,$(BRANCHES),git -C $(2) checkout -b $(BRANCH) origin/$(BRANCH) || ) true
 endef
 
@@ -118,6 +174,9 @@ $($(1)_INSTALL_TARGET_FILE): $(call install-target-file,$($(1)_DEFAULT_BUILD))
 .PHONY: test-$($(1)_TARGET_NAME)
 test-$($(1)_TARGET_NAME): test-$($(1)_DEFAULT_BUILD)
 
+.PHONY: create-binary-archive-$($(1)_TARGET_NAME)
+create-binary-archive-$($(1)_TARGET_NAME): create-binary-archive-$($(1)_DEFAULT_BUILD)
+
 .PHONY: $($(1)_TARGET_NAME)
 $($(1)_TARGET_NAME): $($(1)_INSTALL_TARGET_FILE)
 ,)
@@ -153,15 +212,15 @@ clone-$($(1)_TARGET_NAME): $($(1)_SOURCE_TARGET_FILE)
 
 endef
 
-# 6: target suffix for this build
-# 7: suffix for the prefix of this build
 define component-build
 
 #
 # Rules for $(2) (component-build)
 #
 
-$(eval $(7)_BUILDS += $(1))
+# $(6) is the PREFIX of the corresponding source
+
+$(eval $(6)_BUILDS += $(1))
 
 $(eval $(1)_TARGET_NAME := $(2))
 
@@ -177,16 +236,11 @@ $(eval $(1)_INSTALL_TARGET_FILE := $(call install-target-file,$($(1)_TARGET_NAME
 # List of targets the configure stage should depend on
 $(eval $(1)_CONFIGURE_DEPS := $(5))
 
-# Path where the archive should be stored, relative to $(ARCHIVE_PATH)
-$(eval $(1)_ARCHIVE_PATH := $(ARCHIVE_PATH)/$(6))
-
-# $(7) is the PREFIX of the corresponding source
-
 # configure- target
 .PHONY: configure-$($(1)_TARGET_NAME)
-configure-$($(1)_TARGET_NAME) $($(1)_CONFIGURE_TARGET_FILE): $($(7)_SOURCE_TARGET_FILE) $($(1)_CONFIGURE_DEPS)
+configure-$($(1)_TARGET_NAME) $($(1)_CONFIGURE_TARGET_FILE): $($(6)_SOURCE_TARGET_FILE) $($(1)_CONFIGURE_DEPS)
 	mkdir -p $(BUILD_PATH)
-$(call do-configure-$($(1)_TARGET_NAME),$($(7)_SOURCE_PATH),$($(1)_BUILD_PATH))
+$(call do-configure-$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH),$($(1)_BUILD_PATH))
 $(call touch,$($(1)_CONFIGURE_TARGET_FILE))
 
 # build- target
@@ -209,7 +263,7 @@ $(if $(do-install-$($(1)_TARGET_NAME)),
 $(call do-install-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH)),
 $(call make,$($(1)_BUILD_PATH),)
 $(call make,$($(1)_BUILD_PATH),install))
-$(call touch,$($(7)_INSTALL_TARGET_FILE))
+$(call touch,$($(6)_INSTALL_TARGET_FILE))
 $(call touch,$($(1)_INSTALL_TARGET_FILE))
 
 # clean- target
@@ -218,17 +272,55 @@ clean-$($(1)_TARGET_NAME):
 	rm -rf $($(1)_BUILD_PATH)
 
 # Add the clean- target for the current build to the component clean- target
-clean-$($(7)_TARGET_NAME): clean-$($(1)_TARGET_NAME)
+clean-$($(6)_TARGET_NAME): clean-$($(1)_TARGET_NAME)
 
 
 .PHONY: $($(1)_TARGET_NAME)
 $($(1)_TARGET_NAME): $($(1)_INSTALL_TARGET_FILE)
 
-.PHONY: create-archive-$($(1)_TARGET_NAME)
-create-archive-$($(1)_TARGET_NAME): $($(1)_ARCHIVE_PATH)
-$($(1)_ARCHIVE_PATH):
-$(call create-archive,install-$($(1)_TARGET_NAME),$@)
+.PHONY: create-binary-archive-$($(1)_TARGET_NAME)
+create-binary-archive-$($(1)_TARGET_NAME):
+$(call create-binary-archive,$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH))
 
+# $(1): archive path
+define fetch-binary-and-extract
+	git -C "$(BINARY_ARCHIVE_PATH)" lfs pull -I "$$(1)"; \
+	mkdir -p "$(INSTALL_PATH)"; \
+	cd "$(INSTALL_PATH)"; \
+	tar xaf "$$(1)";
+endef
+
+# fetch-binary- target
+# $(1): target to fetch
+# $(2): source path
+# 1. Find the branch
+# 2. Get the commit
+# 3. Check for the commit file
+# 4. Check for the branch file
+fetch-binary-$($(1)_TARGET_NAME):
+	TEMP=$$$$(tempfile) || exit; \
+	for REMOTE in $(REMOTES_BASE_URL); do \
+        trap "rm -f -- '$$$$TEMP'" EXIT; \
+	    git ls-remote -h --refs $$$${REMOTE}$(2) > $$$$TEMP; \
+		for BRANCH in $(BRANCHES); do \
+	        RES=$$$$(grep 'refs/heads/'"$$$$BRANCH"'$$$$' "$$$$TEMP" | grep -o '^[a-z0-9]*'); \
+	        if test -n "$$$$RES"; then \
+	            rm -f -- "$$$$TEMP"; \
+	            trap - EXIT; \
+	            HASH_FILE="$(call binary-archive-directory,$($(1)_TARGET_NAME))/$$$$RES.tar.gz"; \
+	            BRANCH_FILE="$(call binary-archive-directory,$($(1)_TARGET_NAME))/$$$$BRANCH.tar.gz"; \
+	            if test -e "$$$$HASH_FILE"; then \
+	                $(call fetch-binary-and-extract,$$$$HASH_FILE) \
+	            elif test -e "$$$$BRANCH_FILE"; then \
+	                $(call fetch-binary-and-extract,$$$$BRANCH_FILE) \
+	            else \
+	                echo "Couldn't find the archive for branch $$$$BRANCH"; \
+	                exit 1; \
+	            fi; \
+                exit 0; \
+	        fi; \
+	    done; \
+	done;
 endef
 
 # 1: target name
@@ -246,7 +338,7 @@ endef
 # 3: File to depend on for configure, relative to $(PREFIX)_BUILD_PATH
 # 4: List of targets the configure stage should depend on
 define simple-component-build
-$(call component-build,$(call target-to-prefix,$(1)$(2)),$(1)$(2),$(1)$(2),$(3),$(4),$(1)$(2).tar.gz,$(call target-to-prefix,$(1)))
+$(call component-build,$(call target-to-prefix,$(1)$(2)),$(1)$(2),$(1)$(2),$(3),$(4),$(call target-to-prefix,$(1)))
 endef
 
 # 1: target name
