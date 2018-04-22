@@ -122,7 +122,7 @@ endef
 # $(1): remote-relative path of the repository to clone
 # $(2): clone destination path
 define clone
-	$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),GIT_LFS_SKIP_SMUDGE=1 git clone $(REMOTE_BASE_URL)/$(1) $(2) || ) false
+	$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),GIT_LFS_SKIP_SMUDGE=1 git clone $(REMOTE_BASE_URL)$(1) $(2) || ) false
 	$(foreach BRANCH,$(BRANCHES),git -C $(2) checkout -b $(BRANCH) origin/$(BRANCH) || ) true
 endef
 
