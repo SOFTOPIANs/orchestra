@@ -88,7 +88,7 @@ endef
 
 define do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
 	make -C $(1) headers
-	make -C $(1) DESTDIR="$(INSTALL_PATH)/usr/$(TRIPLE)" install_headers
+	make -C $(1) DESTDIR="$$$$DESTDIR$(INSTALL_PATH)/usr/$(TRIPLE)" install_headers
 endef
 
 # $(1): source path
@@ -121,7 +121,7 @@ endef
 
 define do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc
 	PATH="$(NEW_GCC_PATH):$(BINUTILS_PATH):$$$$PATH" make -C $(1)
-	PATH="$(NEW_GCC_PATH):$(BINUTILS_PATH):$$$$PATH" make -C $(1) install DESTDIR="$(INSTALL_PATH)/usr/$(TRIPLE)" 
+	PATH="$(NEW_GCC_PATH):$(BINUTILS_PATH):$$$$PATH" make -C $(1) install DESTDIR="$$$$DESTDIR$(INSTALL_PATH)/usr/$(TRIPLE)"
 endef
 
 
@@ -237,11 +237,11 @@ endif
 # =============
 
 define do-build-$(TOOLCHAIN_TARGET_PREFIX)linux-headers
-	make -C $(1) ARCH=$(LINUX_ARCH_NAME) INSTALL_HDR_PATH="$(INSTALL_PATH)/usr/$(TRIPLE)/usr" headers_install
+	make -C $(1) ARCH=$(LINUX_ARCH_NAME) INSTALL_HDR_PATH="$$$$DESTDIR$(INSTALL_PATH)/usr/$(TRIPLE)/usr" headers_install
 endef
 
 define do-install-$(TOOLCHAIN_TARGET_PREFIX)linux-headers
-	make -C $(1) ARCH=$(LINUX_ARCH_NAME) INSTALL_HDR_PATH="$(INSTALL_PATH)/usr/$(TRIPLE)/usr" headers_install
+	make -C $(1) ARCH=$(LINUX_ARCH_NAME) INSTALL_HDR_PATH="$$$$DESTDIR$(INSTALL_PATH)/usr/$(TRIPLE)/usr" headers_install
 endef
 
 # $(1): source path

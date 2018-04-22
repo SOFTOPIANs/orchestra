@@ -20,6 +20,7 @@ $(call option,PLATFORM_NAME,$(call platform-name),Name of the platform used to a
 $(call option,BINARY_ARCHIVE_PATH,$(PWD)/binary-archives,Path for storing and fetching binary archives)
 $(call option,SOURCE_ARCHIVE_PATH,$(PWD)/source-archives,Path for caching source archives)
 $(call option,PATCH_PATH,$(PWD)/patches,Path containing patches for components)
+$(call option,TEMP_INSTALL_PATH,$(PWD)/temp-install,Path for installing components before creating a binary archive)
 $(call option,REMOTES,$(shell ./get-remote),Space-separated list of remotes of the current repository to try, one after the other, while cloning sources)
 $(call option,REMOTES_BASE_URL,$(foreach REMOTE,$(REMOTES),$(dir $(shell git config --get remote.$(REMOTE).url))),Space-separated list of repository base URLs to try, one after the other, while cloning sources)
 $(call option,BRANCHES,develop master,Space-separated list of git refs such as branches to try to checkout after the sources have been cloned)
@@ -92,14 +93,17 @@ endef
 
 # $(1): target to archive
 # $(2): source path
+# $(3): target install file
 define create-binary-archive
-	find "$(INSTALL_PATH)/" | xargs -n10 touch -d '1980-01-01 00:00:00'
-	make install-$(1)
-	touch -d '1980-01-01 00:00:00' "$(INSTALL_PATH)/"
+	rm -rf "$(TEMP_INSTALL_PATH)"
+	mkdir -p "$(TEMP_INSTALL_PATH)"
+	make $(3)
+	make install-$(1) "DESTDIR=$(TEMP_INSTALL_PATH)"
 	$(eval TMP_ARCHIVE_DIRECTORY := $(call binary-archive-directory,$(1)))
 	mkdir -p "$(TMP_ARCHIVE_DIRECTORY)"
 	touch "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz"
-	cd "$(INSTALL_PATH)" && find -L . -newer "$(INSTALL_PATH)" -print0 | tar caf "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz" --no-recursion --owner=0 --group=0 --null --files-from=-
+	cd "$(TEMP_INSTALL_PATH)/$(INSTALL_PATH)"; tar caf "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz" --owner=0 --group=0 .
+	rm -rf "$(TEMP_INSTALL_PATH)"
 	if test -n "$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD)"; then \
 	  ln -f -s "$$$$(git -C '$(2)' rev-parse HEAD).tar.gz" "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD | tr '/' '-').tar.gz"; \
 	fi
@@ -280,7 +284,7 @@ $($(1)_TARGET_NAME): $($(1)_INSTALL_TARGET_FILE)
 
 .PHONY: create-binary-archive-$($(1)_TARGET_NAME)
 create-binary-archive-$($(1)_TARGET_NAME):
-$(call create-binary-archive,$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH))
+$(call create-binary-archive,$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH),$($(1)_INSTALL_TARGET_FILE))
 
 # $(1): archive path
 define fetch-binary-and-extract

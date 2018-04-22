@@ -199,7 +199,7 @@ define do-build-boost
 endef
 
 define do-install-boost
-	cd $(1) && ./b2 --ignore-site-config install
+	cd $(1) && ./b2 --prefix="$$$$DESTDIR$(INSTALL_PATH)" --ignore-site-config install
 endef
 
 # $(1): source path
