@@ -67,6 +67,7 @@ ifdef UCLIBC_VERSION
 
 # $(1): source path
 # $(2): build path
+# $(3): extra flags variable name
 define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common
 	mkdir -p "$(2)"
 
@@ -75,7 +76,7 @@ $(call download-tar,$(2),https://uclibc.org/downloads,uClibc-$(UCLIBC_VERSION).t
 	  make ARCH=$(UCLIBC_ARCH_NAME) defconfig && \
 	  cp "$(PATCH_PATH)/uClibc.config" .config && \
 	  sed 's|$$$$INSTALL_PATH|'"$(INSTALL_PATH)"'|g' .config -i && \
-	  sed 's|$$$$FLAGS|'"$(3)"'|g' .config -i && \
+	  sed 's|$$$$FLAGS|'"$($(3))"'|g' .config -i && \
 	  yes "" | make oldconfig && \
 	  patch -p1 < "$(PATCH_PATH)/blt-blo.patch" && \
 	  sed 's|^typedef __kernel_dev_t\s*__kernel_old_dev_t;$$$$|\0\ntypedef long __kernel_long_t;\ntypedef unsigned long __kernel_ulong_t;|' libc/sysdeps/linux/arm/bits/kernel_types.h -i
@@ -92,8 +93,9 @@ endef
 
 # $(1): source path
 # $(2): build path
+# $(3): extra flags variable name
 define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
-$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common,$(1),$(2))
+$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common,$(1),$(2),$(3))
 endef
 
 $(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)UCLIBC_HEADERS,$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers,$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers))
@@ -107,9 +109,9 @@ $(TOOLCHAIN_TARGET_PREFIX)libc-headers: $(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
 
 # $(1): source path
 # $(2): build path
-# $(3): extra flags
+# $(3): extra flags variable name
 define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc
-$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common,$(1),$(2))
+$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common,$(1),$(2),$(3))
 endef
 
 
@@ -124,7 +126,7 @@ endef
 
 
 # $(1): build suffix
-# $(2): extra flags
+# $(2): extra flags variable name
 define $(TOOLCHAIN_TARGET_PREFIX)uclibc-template
 
 define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
@@ -144,7 +146,7 @@ $$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)uclibc,$(1),con
 endef
 
 $(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)UCLIBC,$(TOOLCHAIN_TARGET_PREFIX)uclibc,$(TOOLCHAIN_TARGET_PREFIX)uclibc-$(LIBC_DEFAULT_CONFIG)))
-$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)uclibc-template,-$(LIBC_CONFIG),$(LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS))))
+$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)uclibc-template,-$(LIBC_CONFIG),LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS)))
 
 $(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)UCLIBC_INSTALL_TARGET_FILE)
 $(TOOLCHAIN_TARGET_PREFIX)libc: $(TOOLCHAIN_TARGET_PREFIX)uclibc
@@ -195,12 +197,12 @@ $(eval $(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)musl-headers,,con
 
 # $(1): source path
 # $(2): build path
-# $(3): extra flags
+# $(3): extra flags variable name
 define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl
 $(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common,$(1),$(2))
 	cd "$(2)" && CC="$(NEW_GCC)" \
 	LIBCC="$(MUSL_LIBCC)" \
-	CFLAGS="$(MUSL_CFLAGS) $(3)" \
+	CFLAGS="$(MUSL_CFLAGS) $($(3))" \
 	"$(2)/configure" \
 	        --target=$(TRIPLE) \
 	        --prefix="$(INSTALL_PATH)/usr/$(TRIPLE)/usr" \
@@ -209,7 +211,7 @@ $(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common,$(1),$(2))
 endef
 
 # $(1): build suffix
-# $(2): extra flags
+# $(2): extra flags variable name
 define $(TOOLCHAIN_TARGET_PREFIX)musl-template
 
 define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl$(1)
@@ -221,7 +223,7 @@ $$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)musl,$(1),confi
 endef
 
 $(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)MUSL,$(TOOLCHAIN_TARGET_PREFIX)musl,$(TOOLCHAIN_TARGET_PREFIX)musl-$(LIBC_DEFAULT_CONFIG)))
-$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)musl-template,-$(LIBC_CONFIG),$(LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS))))
+$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)musl-template,-$(LIBC_CONFIG),LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS)))
 
 $(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)MUSL_HEADERS_INSTALL_TARGET_FILE)
 $(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)MUSL_INSTALL_TARGET_FILE)
