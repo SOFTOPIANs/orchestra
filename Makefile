@@ -6,6 +6,8 @@ MAKEFLAGS += -r
 COMMA := ,
 SPACE :=
 SPACE +=
+LPAR := (
+RPAR := )
 SHELL := /bin/bash -e
 
 # TODO:

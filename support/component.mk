@@ -24,6 +24,9 @@ $(call option,TEMP_INSTALL_PATH,$(PWD)/temp-install,Path for installing componen
 $(call option,REMOTES,$(shell ./get-remote),Space-separated list of remotes of the current repository to try, one after the other, while cloning sources)
 $(call option,REMOTES_BASE_URL,$(foreach REMOTE,$(REMOTES),$(dir $(shell git config --get remote.$(REMOTE).url))),Space-separated list of repository base URLs to try, one after the other, while cloning sources)
 $(call option,BRANCHES,develop master,Space-separated list of git refs such as branches to try to checkout after the sources have been cloned)
+$(call option,CLONE_ATTEMPTS,3,Attempts to clone a remote before giving up)
+$(call option,CLONE_ATTEMPTS_PAUSE,10,Seconds to wait before an attempt to clone a remote and the next one)
+$(eval CLONE_ATTEMPTS_LOOP := $(shell seq $(CLONE_ATTEMPTS)))
 
 # $(shell echo $(1) | tr a-z- A-Z_)
 define target-to-prefix
@@ -57,27 +60,6 @@ endef
 
 define string-to-suffix
 $(subst /,-,$(1))
-endef
-
-#
-# Find the appropriate remote to employ for the givent component
-#
-# $(1): remote-relative path of the repository to clone
-define find-remote
-$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),git ls-remote $(REMOTE_BASE_URL)$(1) && echo $(REMOTE_BASE_URL)$(1) || ) false
-endef
-
-#
-# Find the appropriate branch to employ for the given remote
-#
-# $(1): remote
-define find-branch
-$(foreach BRANCH,$(BRANCHES),git ls-remote -h --refs $$$$($(1)) | grep 'refs/heads/'"$(BRANCH)"'$' && echo "$(BRANCH)" || ) true
-endef
-
-# $(1): target name
-define find-target-branch
-$(call find-branch,$(call find-remote,$(1)))
 endef
 
 # $(1): target name
@@ -116,13 +98,20 @@ define make
 	MAKEFLAGS= make -C "$(1)" -j$(JOBS) $(2)
 endef
 
+# $(1) attempts before giving up
+# $(2) sleep time between attempts
+# $(3) command to retry
+define retry
+$(LPAR)$(foreach I,$(1),$(3)$(RPAR) || $(LPAR)sleep $(2) && ) false $(RPAR)
+endef
+
 # TODO: Detect if a clone fails due to a missing repository or connection issues.
 #       Looking for the "Connection refused" string in the output seems to be the most reliable approach.
 # TODO: Clone and create a remote the same name as the source one.
 # $(1): remote-relative path of the repository to clone
 # $(2): clone destination path
 define clone
-	$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),GIT_LFS_SKIP_SMUDGE=1 git clone $(REMOTE_BASE_URL)$(1) $(2) || ) false
+	$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),$(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),GIT_LFS_SKIP_SMUDGE=1 git clone $(REMOTE_BASE_URL)$(1) $(2)) || ) false
 	$(foreach BRANCH,$(BRANCHES),git -C $(2) checkout -b $(BRANCH) origin/$(BRANCH) || ) true
 endef
 
@@ -305,26 +294,29 @@ fetch-binary-$($(1)_TARGET_NAME):
 	TEMP=$$$$(tempfile) || exit; \
 	for REMOTE in $(REMOTES_BASE_URL); do \
         trap "rm -f -- '$$$$TEMP'" EXIT; \
-	    git ls-remote -h --refs $$$${REMOTE}$(2) > $$$$TEMP; \
-		for BRANCH in $(BRANCHES); do \
-	        RES=$$$$(grep 'refs/heads/'"$$$$BRANCH"'$$$$' "$$$$TEMP" | grep -o '^[a-z0-9]*'); \
-	        if test -n "$$$$RES"; then \
-	            rm -f -- "$$$$TEMP"; \
-	            trap - EXIT; \
-	            HASH_FILE="$(call binary-archive-directory,$($(1)_TARGET_NAME))/$$$$RES.tar.gz"; \
-	            BRANCH_FILE="$(call binary-archive-directory,$($(1)_TARGET_NAME))/$$$$BRANCH.tar.gz"; \
-	            if test -e "$$$$HASH_FILE"; then \
-	                $(call fetch-binary-and-extract,$$$$HASH_FILE) \
-	            elif test -e "$$$$BRANCH_FILE"; then \
-	                $(call fetch-binary-and-extract,$$$$BRANCH_FILE) \
-	            else \
-	                echo "Couldn't find the archive for branch $$$$BRANCH"; \
-	                exit 1; \
+	    $(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),git ls-remote -h --refs $$$${REMOTE}$(2) > "$$$$TEMP") || true; \
+	    if test -s "$$$$TEMP"; then \
+		    for BRANCH in $(BRANCHES); do \
+	            RES=$$$$(grep 'refs/heads/'"$$$$BRANCH"'$$$$' "$$$$TEMP" | grep -o '^[a-z0-9]*'); \
+	            if test -n "$$$$RES"; then \
+	                rm -f -- "$$$$TEMP"; \
+	                trap - EXIT; \
+	                HASH_FILE="$(call binary-archive-directory,$($(1)_TARGET_NAME))/$$$$RES.tar.gz"; \
+	                BRANCH_FILE="$(call binary-archive-directory,$($(1)_TARGET_NAME))/$$$$BRANCH.tar.gz"; \
+	                if test -e "$$$$HASH_FILE"; then \
+	                    $(call fetch-binary-and-extract,$$$$HASH_FILE) \
+	                elif test -e "$$$$BRANCH_FILE"; then \
+	                    $(call fetch-binary-and-extract,$$$$BRANCH_FILE) \
+	                else \
+	                    echo "Couldn't find the archive for branch $$$$BRANCH"; \
+	                    exit 1; \
+	                fi; \
+                    exit 0; \
 	            fi; \
-                exit 0; \
-	        fi; \
-	    done; \
-	done;
+	        done; \
+	    fi; \
+	done; \
+	exit 1;
 endef
 
 # 1: target name
