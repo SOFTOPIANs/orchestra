@@ -131,7 +131,6 @@ define do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc
 	PATH="$(NEW_GCC_PATH):$(BINUTILS_PATH):$$$$PATH" make -C $(1) install DESTDIR="$$$$DESTDIR$(INSTALL_PATH)/usr/$(TRIPLE)"
 endef
 
-
 # $(1): build suffix
 # $(2): extra flags variable name
 define $(TOOLCHAIN_TARGET_PREFIX)uclibc-template

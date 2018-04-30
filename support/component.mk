@@ -91,6 +91,20 @@ define create-binary-archive
 	fi
 endef
 
+# $(1): target to archive
+# $(2): source path
+define git-add-binary-archive
+	$(eval TMP_ARCHIVE_DIRECTORY := $(call binary-archive-directory,$(1)))
+	if test -e "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz"; then \
+	  git -C '$(BINARY_ARCHIVE_PATH)' add "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz"; \
+	fi
+	if test -n "$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD)"; then \
+	  if test -e "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD | tr '/' '-').tar.gz"; then \
+	    git -C '$(BINARY_ARCHIVE_PATH)' add "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD | tr '/' '-').tar.gz"; \
+	  fi \
+	fi
+endef
+
 # $(1): build path
 # $(2): extra arguments (in particular, build target)
 # We unset MAKEFLAGS to make sure we don't pass to submake weird flags
@@ -123,6 +137,16 @@ define download-tar
 	mkdir -p $(SOURCE_ARCHIVE_PATH)
 	test -e "$(SOURCE_ARCHIVE_PATH)/$(3)" || curl -L "$(2)/$(3)" > "$(SOURCE_ARCHIVE_PATH)/$(3)"
 	cd "$(1)" && tar xaf "$(SOURCE_ARCHIVE_PATH)/$(3)" --strip-components=1
+endef
+
+# git -C "$(BINARY_ARCHIVE_PATH)" lfs pull -I "$$(1)";
+
+# $(1): archive path
+define fetch-binary-and-extract
+	python support/git-lfs "$(BINARY_ARCHIVE_PATH)" --only "`readlink -f $(1)`"; \
+	mkdir -p "$(INSTALL_PATH)"; \
+	cd "$(INSTALL_PATH)"; \
+	tar xaf "$(1)";
 endef
 
 # Functions to build components
@@ -251,7 +275,16 @@ $(call do-test-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH)),)
 
 # install- target
 .PHONY: install-$($(1)_TARGET_NAME)
+
+ifeq ($($(6)_TARGET_NAME),$(filter $($(6)_TARGET_NAME),$(BINARY_COMPONENTS)))
+install-$($(1)_TARGET_NAME): $($(1)_CONFIGURE_TARGET_FILE)
+else
 install-$($(1)_TARGET_NAME) $($(1)_INSTALL_TARGET_FILE): $($(1)_CONFIGURE_TARGET_FILE)
+endif
+	mkdir -p "$$$$DESTDIR$(INSTALL_PATH)/include"
+	mkdir -p "$$$$DESTDIR$(INSTALL_PATH)/lib"
+	mkdir -p "$$$$DESTDIR$(INSTALL_PATH)/bin"
+	mkdir -p "$$$$DESTDIR$(INSTALL_PATH)/libexec"
 $(if $(do-install-$($(1)_TARGET_NAME)),
 $(call do-install-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH)),
 $(call make,$($(1)_BUILD_PATH),)
@@ -273,32 +306,32 @@ clean-$($(6)_TARGET_NAME): clean-$($(1)_TARGET_NAME)
 $($(1)_TARGET_NAME): $($(1)_INSTALL_TARGET_FILE)
 
 .PHONY: create-binary-archive-$($(1)_TARGET_NAME)
-create-binary-archive-$($(1)_TARGET_NAME):
+create-binary-archive-$($(1)_TARGET_NAME): $(BINARY_ARCHIVE_PATH)/README.md
 $(call create-binary-archive,$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH),$($(1)_INSTALL_TARGET_FILE))
 
-# $(1): archive path
-define fetch-binary-and-extract
-	git -C "$(BINARY_ARCHIVE_PATH)" lfs pull -I "$$(1)"; \
-	mkdir -p "$(INSTALL_PATH)"; \
-	cd "$(INSTALL_PATH)"; \
-	tar xaf "$$(1)";
-endef
+.PHONY: git-add-binary-archive-$($(1)_TARGET_NAME)
+git-add-binary-archive-$($(1)_TARGET_NAME): $(BINARY_ARCHIVE_PATH)/README.md
+$(call git-add-binary-archive,$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH))
 
-# fetch-binary- target
+# fetch- target
 # $(1): target to fetch
 # $(2): source path
 # 1. Find the branch
 # 2. Get the commit
 # 3. Check for the commit file
 # 4. Check for the branch file
-fetch-binary-$($(1)_TARGET_NAME):
+ifeq ($($(6)_TARGET_NAME),$(filter $($(6)_TARGET_NAME),$(BINARY_COMPONENTS)))
+fetch-$($(1)_TARGET_NAME) $($(1)_INSTALL_TARGET_FILE): $(BINARY_ARCHIVE_PATH)/README.md
+else
+fetch-$($(1)_TARGET_NAME): $(BINARY_ARCHIVE_PATH)/README.md
+endif
 	TEMP=$$$$(tempfile) || exit; \
 	for REMOTE in $(REMOTES_BASE_URL); do \
         trap "rm -f -- '$$$$TEMP'" EXIT; \
-	    $(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),git ls-remote -h --refs $$$${REMOTE}$(2) > "$$$$TEMP") || true; \
+	    $(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),git ls-remote -h --refs $$$${REMOTE}$($(6)_TARGET_NAME) > "$$$$TEMP") || true; \
 	    if test -s "$$$$TEMP"; then \
 		    for BRANCH in $(BRANCHES); do \
-	            RES=$$$$(grep 'refs/heads/'"$$$$BRANCH"'$$$$' "$$$$TEMP" | grep -o '^[a-z0-9]*'); \
+	            RES=$$$$( (grep 'refs/heads/'"$$$$BRANCH"'$$$$' "$$$$TEMP" || true) | (grep -o '^[a-z0-9]*' || true) ); \
 	            if test -n "$$$$RES"; then \
 	                rm -f -- "$$$$TEMP"; \
 	                trap - EXIT; \
@@ -313,6 +346,8 @@ fetch-binary-$($(1)_TARGET_NAME):
 	                    exit 1; \
 	                fi; \
                     exit 0; \
+$(call touch,$($(6)_INSTALL_TARGET_FILE)) \
+$(call touch,$($(1)_INSTALL_TARGET_FILE)) \
 	            fi; \
 	        done; \
 	    fi; \
@@ -388,3 +423,7 @@ define simple-autotools-component
 $(call autotools-component-source,$(1),)
 $(call autotools-component-build,$(1),,$(2))
 endef
+
+# Binaries
+$(BINARY_ARCHIVE_PATH)/README.md:
+	$(call clone,binary-archives,$(BINARY_ARCHIVE_PATH))

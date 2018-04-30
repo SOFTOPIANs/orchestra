@@ -12,8 +12,7 @@ SHELL := /bin/bash -e
 
 # TODO:
 #
-# * Binary toolchains
-# * CI
+# * Time, get peak memory consumption and size targets
 
 # Make sure all is the default build target, we will define it at the end
 .PHONY: help
@@ -23,13 +22,19 @@ help:
 # ============================
 
 include support/option.mk
+
+$(call option, \
+  BINARY_COMPONENTS, \
+  boost llvm toolchain/mips/gcc toolchain/arm/gcc toolchain/i386/gcc \
+    toolchain/x86-64/gcc, \
+  List of components for which binary archives should be used)
+
 include support/component.mk
 
 # Global configuration
 # ====================
 
 $(eval BIN_PATH := bin)
-
 
 # LLVM
 # ====
@@ -252,10 +257,6 @@ endef
 
 $(eval $(call simple-cmake-component,revamb,$(LLVM_INSTALL_TARGET_FILE) $(QEMU_INSTALL_TARGET_FILE) $(BOOST_INSTALL_TARGET_FILE) environment | $(TOOLCHAIN_INSTALL_TARGET_FILE)))
 
-# Binaries
-binary-archives:
-	$(call clone,binary-archives,$(BINARY_ARCHIVE_PATH))
-
 # Default targets
 # ===============
 
@@ -303,6 +304,29 @@ create-binary-archive: $(foreach COMPONENT,$(COMPONENTS),create-binary-archive-$
 .PHONY: create-binary-archive-all
 create-binary-archive-all: $(foreach COMPONENT,$(COMPONENTS),$(foreach BUILD,$($(COMPONENT)_BUILDS),create-binary-archive-$($(BUILD)_TARGET_NAME)))
 
+$(call option,PUSH_BINARY_ARCHIVE_NETRC,,Content of the .netrc file for credentials in the follwoing form: machine HOST login USERNAME password PASSWORD. It will not end up in the logs or in command lines but temporarily on disk.)
+$(call option,PUSH_BINARY_ARCHIVE_REMOTE,,Git URL to use to push binary archives. It will not end up in the logs but on the git command line.)
+$(call option,PUSH_BINARY_ARCHIVE_EMAIL,orchestra@localhost,E-mail to use for commits for binary archives)
+$(call option,PUSH_BINARY_ARCHIVE_NAME,Orchestra,Name to use for commits for binary archives)
+
+# Warning: PUSH_BINARY_ARCHIVE_NETRC can contain a password, we have to make
+# sure the URL doesn't end up in the log or in any command line. Environment
+# variables should be relatively safe since, unlike the command line, they are
+# not world readable.
+
+.PHONY: commit-binary-archive
+commit-binary-archive: $(foreach COMPONENT,$(COMPONENTS),$(foreach BUILD,$($(COMPONENT)_BUILDS),git-add-binary-archive-$($(BUILD)_TARGET_NAME)))
+	git lfs >& /dev/null
+	git -C '$(BINARY_ARCHIVE_PATH)' config user.email "$(PUSH_BINARY_ARCHIVE_EMAIL)"
+	git -C '$(BINARY_ARCHIVE_PATH)' config user.name "$(PUSH_BINARY_ARCHIVE_NAME)"
+	git -C '$(BINARY_ARCHIVE_PATH)' commit -m'Automatic binary archives'
+
+	rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc
+	touch $(BINARY_ARCHIVE_PATH)/.netrc
+	chmod 600 $(BINARY_ARCHIVE_PATH)/.netrc
+	CONTENT="$$PUSH_BINARY_ARCHIVE_NETRC" support/env-to-file.py '$(BINARY_ARCHIVE_PATH)/.netrc'
+	HOME='$(BINARY_ARCHIVE_PATH)' git -C '$(BINARY_ARCHIVE_PATH)' push $$PUSH_BINARY_ARCHIVE_REMOTE $$(git -C '$(BINARY_ARCHIVE_PATH)' name-rev --name-only HEAD) || (rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc; exit 1)
+	rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc
 
 # make2graph
 # ==========
