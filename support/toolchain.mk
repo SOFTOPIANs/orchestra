@@ -1,3 +1,9 @@
+# $(1): patch patch
+# $(2): directory to patch from
+define patch-if-exists
+	if test -e "$(1)"; then cd "$(2)" && patch -p1 < "$(1)"; fi
+endef
+
 # binutils
 # ========
 
@@ -168,7 +174,8 @@ define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common
 
 $(call download-tar,$(2),http://www.musl-libc.org/releases/,musl-$(MUSL_VERSION).tar.gz)
 
-	cd "$(2)" && patch -p1 < "$(PATCH_PATH)/musl-$(MUSL_VERSION)-printf-floating-point-rounding.patch"
+$(call patch-if-exists,$(PATCH_PATH)/musl-$(MUSL_VERSION)-printf-floating-point-rounding.patch,$(2))
+
 	cd "$(2)" && cp arch/{arm,x86_64}/bits/float.h
 endef
 
@@ -264,8 +271,9 @@ $(eval $(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)linux-headers,,Ma
 # $(2): clone destination path
 define do-clone-$(TOOLCHAIN_TARGET_PREFIX)gcc
 $(call download-tar,$(2),https://ftp.gnu.org/gnu/gcc/gcc-$(GCC_VERSION),gcc-$(GCC_VERSION).tar.gz)
-	cd "$(2)" && patch -p1 < "$(PATCH_PATH)/gcc-$(GCC_VERSION)-cfns-fix-mismatch-in-gnu_inline-attributes.patch"
-	cd "$(2)" && patch -p1 < "$(PATCH_PATH)/gcc-$(GCC_VERSION)-cpp-musl-support.patch"
+
+$(call patch-if-exists,$(PATCH_PATH)/gcc-$(GCC_VERSION)-cfns-fix-mismatch-in-gnu_inline-attributes.patch,$(2))
+$(call patch-if-exists,$(PATCH_PATH)/gcc-$(GCC_VERSION)-cpp-musl-support.patch,$(2))
 endef
 
 # $(1): source path
