@@ -114,7 +114,18 @@ define do-configure-qemu
     export LLVM_CONFIG="$(INSTALL_PATH)/bin/llvm-config"; \
 	"$(1)/configure" \
 	    --prefix="$(INSTALL_PATH)" \
-	    --target-list="arm-libtinycode x86_64-libtinycode mips-libtinycode arm-linux-user x86_64-linux-user mips-linux-user i386-libtinycode i386-linux-user" \
+	    --target-list=" \
+	        arm-libtinycode \
+	        arm-linux-user \
+	        i386-libtinycode \
+	        i386-linux-user \
+	        mips-libtinycode \
+	        mips-linux-user \
+	        s390x-libtinycode \
+	        s390x-linux-user \
+	        x86_64-libtinycode \
+	        x86_64-linux-user \
+	        " \
 	    --enable-debug \
 	    --disable-werror \
 	    --extra-cflags="-ggdb -O0" \
@@ -160,7 +171,6 @@ $(eval LINUX_VERSION := $($(TMP)_LINUX_VERSION))
 $(eval GCC_VERSION := $($(TMP)_GCC_VERSION))
 $(eval EXTRA_GCC_CONFIGURE_OPTIONS := $($(TMP)_EXTRA_GCC_CONFIGURE_OPTIONS))
 $(eval MUSL_CFLAGS := $($(TMP)_MUSL_CFLAGS))
-$(eval MUSL_LIBCC := $($(TMP)_MUSL_LIBCC))
 $(eval DYNAMIC := $($(TMP)_DYNAMIC))
 )
 endef
@@ -197,6 +207,17 @@ $(call option,ARM_GCC_VERSION,4.9.3)
 $(call option,ARM_EXTRA_GCC_CONFIGURE_OPTIONS,--enable-__cxa_atexit --enable-tls --enable-clocale=gnu --with-float=softfp --with-arch=armv7-a --without-cloog)
 $(call option,ARM_DYNAMIC,0)
 $(call prepare-for-toolchain,arm)
+include support/toolchain.mk
+
+$(call option,S390X_TRIPLE,s390x-ibm-linux-musl)
+$(call option,S390X_LINUX_ARCH_NAME,s390)
+$(call option,S390X_BINUTILS_VERSION,2.29.1)
+$(call option,S390X_MUSL_VERSION,1.1.19)
+$(call option,S390X_LINUX_VERSION,4.14.18)
+$(call option,S390X_GCC_VERSION,7.3.0)
+$(call option,S390X_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --without-isl --with-long-double-128)
+$(call option,S390X_DYNAMIC,0)
+$(call prepare-for-toolchain,s390x)
 include support/toolchain.mk
 
 $(call option,MIPS_TRIPLE,mips-unknown-linux-musl)
@@ -275,6 +296,7 @@ define do-configure-revamb
 	      -DC_COMPILER_mips="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/mips-unknown-linux-musl/gcc-bin/5.3.0/mips-unknown-linux-musl-gcc" \
 	      -DC_COMPILER_i386="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/i386-gentoo-linux-musl/gcc-bin/4.9.3/i386-gentoo-linux-musl-gcc" \
 	      -DC_COMPILER_arm="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/armv7a-hardfloat-linux-uclibceabi/gcc-bin/4.9.3/armv7a-hardfloat-linux-uclibceabi-gcc" \
+	      -DC_COMPILER_s390x="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/s390x-ibm-linux-musl/gcc-bin/7.3.0/s390x-ibm-linux-musl-gcc" \
 	      -DBOOST_ROOT="$(INSTALL_PATH)" \
 	      -DBoost_NO_SYSTEM_PATHS=On
 endef

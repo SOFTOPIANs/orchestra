@@ -339,7 +339,6 @@ define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl
 $(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common,$(1),$(2))
 	source $(PWD)/environment; \
 	cd "$(2)" && CC="$(NEW_GCC)" \
-	LIBCC="$(MUSL_LIBCC)" \
 	CFLAGS="$(MUSL_CFLAGS) $($(3))" \
 	"$(2)/configure" \
 	        --target=$(TRIPLE) \
