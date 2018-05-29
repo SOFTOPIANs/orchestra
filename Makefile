@@ -69,28 +69,6 @@ $(CLANG_SOURCE_TARGET_FILE):
 
 $(eval $(call multi-build-cmake-component,llvm,$(CLANG_SOURCE_TARGET_FILE),release,debug))
 
-# compiler-rt
-# ===========
-
-# $(1): source path
-# $(2): build path
-define do-configure-compiler-rt
-	mkdir -p "$(2)"
-	cd "$(2)"; \
-	cmake "$(1)" \
-	      -DLLVM_CONFIG_PATH="$(INSTALL_PATH)/bin/llvm-config" \
-	      -DCMAKE_INSTALL_PREFIX="$(INSTALL_PATH)" \
-	      -DCMAKE_C_FLAGS="-mlong-double-64" \
-	      -DCMAKE_CXX_FLAGS="-mlong-double-64" \
-	      -DCOMPILER_RT_DEFAULT_TARGET_TRIPLE=x86_64-gentoo-linux \
-	      -DCMAKE_BUILD_TYPE=Release \
-	      -DCAN_TARGET_i386=False \
-	      -DCAN_TARGET_i686=False \
-	      -DCOMPILER_RT_BUILD_SANITIZERS=Off
-endef
-
-$(eval $(call simple-cmake-component,compiler-rt,$(LLVM_INSTALL_TARGET_FILE)))
-
 # QEMU
 # ====
 
@@ -144,7 +122,6 @@ $(eval UCLIBC_VERSION := $($(TMP)_UCLIBC_VERSION))
 $(eval LINUX_VERSION := $($(TMP)_LINUX_VERSION))
 $(eval GCC_VERSION := $($(TMP)_GCC_VERSION))
 $(eval EXTRA_GCC_CONFIGURE_OPTIONS := $($(TMP)_EXTRA_GCC_CONFIGURE_OPTIONS))
-$(eval CFLAGS_FOR_TARGET := $($(TMP)_CFLAGS_FOR_TARGET))
 $(eval MUSL_CFLAGS := $($(TMP)_MUSL_CFLAGS))
 $(eval MUSL_LIBCC := $($(TMP)_MUSL_LIBCC))
 $(eval DEPS := $($(TMP)_DEPS))
@@ -159,9 +136,6 @@ $(call option,X86_64_MUSL_VERSION,1.1.12)
 $(call option,X86_64_LINUX_VERSION,4.5.2)
 $(call option,X86_64_GCC_VERSION,4.9.3)
 $(call option,X86_64_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --enable-targets=all --with-multilib-list=m64 --without-isl)
-$(call option,X86_64_CFLAGS_FOR_TARGET,-mlong-double-64 -O2 -g)
-$(call option,X86_64_MUSL_CFLAGS,-msoft-float -mfpmath=387 -mlong-double-64)
-$(call option,X86_64_MUSL_LIBCC,$(INSTALL_PATH)/lib/linux/libclang_rt.builtins-x86_64.a)
 $(call option,X86_64_DEPS,$(COMPILER_RT_INSTALL_TARGET_FILE))
 $(call option,X86_64_DYNAMIC,0)
 $(call prepare-for-toolchain,x86-64)
@@ -260,8 +234,6 @@ define do-configure-revamb
 	      -DCMAKE_INSTALL_PREFIX="$(INSTALL_PATH)" \
 	      -DCMAKE_BUILD_TYPE="Debug" \
 	      -DQEMU_INSTALL_PATH="$(INSTALL_PATH)" \
-	      -DTEST_CFLAGS_x86_64="-msoft-float -mfpmath=387 -mlong-double-64" \
-	      -DTEST_LINK_LIBRARIES_x86_64="-L$(INSTALL_PATH)/lib/linux/ -lc -lclang_rt.builtins-x86_64" \
 	      -DLLVM_DIR="$(INSTALL_PATH)/share/llvm/cmake" \
 	      -DC_COMPILER_x86_64="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/x86_64-gentoo-linux-musl/gcc-bin/4.9.3/x86_64-gentoo-linux-musl-gcc" \
 	      -DC_COMPILER_mips="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/mips-unknown-linux-musl/gcc-bin/5.3.0/mips-unknown-linux-musl-gcc" \

@@ -179,7 +179,6 @@ $(call download-tar,$(2),http://www.musl-libc.org/releases/,musl-$(MUSL_VERSION)
 
 $(call patch-if-exists,$(PATCH_PATH)/musl-$(MUSL_VERSION)-printf-floating-point-rounding.patch,$(2))
 
-	cd "$(2)" && cp arch/{arm,x86_64}/bits/float.h
 endef
 
 # Recent versions of musl have changed the path of the generated file alltypes.h
@@ -337,24 +336,6 @@ endef
 
 define do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
 $(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc,$(1),$(2),--enable-languages=c,c++)
-endef
-
-define do-build-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage1
-$(call make,$(1),CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)")
-endef
-
-define do-install-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage1
-$(call make,$(1),CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)")
-$(call make,$(1),install)
-endef
-
-define do-build-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
-$(call make,$(1),CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)")
-endef
-
-define do-install-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
-$(call make,$(1),CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)")
-$(call make,$(1),install)
 endef
 
 $(eval $(call autotools-component-source,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage2))
