@@ -121,10 +121,11 @@ $(eval $(call simple-autotools-component,qemu,$(LLVM_INSTALL_TARGET_FILE)))
 
 $(call option,LIBC_CONFIGS,default gc-o0 gc-o1 gc-o2 gc-o3,Name of the configurations of the libc to compile)
 $(call option,LIBC_DEFAULT_CONFIG,default,Name of the default configuration to use for the libc)
-$(eval LIBC_CONFIG_GC_O0_FLAGS ?= -Wl$$(COMMA)--gc-sections -ffunction-sections -O0)
-$(eval LIBC_CONFIG_GC_O1_FLAGS ?= -Wl$$(COMMA)--gc-sections -ffunction-sections -O1)
-$(eval LIBC_CONFIG_GC_O2_FLAGS ?= -Wl$$(COMMA)--gc-sections -ffunction-sections -O2)
-$(eval LIBC_CONFIG_GC_O3_FLAGS ?= -Wl$$(COMMA)--gc-sections -ffunction-sections -O3)
+$(eval LIBC_CONFIG_DEFAULT_FLAGS ?= -g)
+$(eval LIBC_CONFIG_GC_O0_FLAGS ?= -g -Wl$$(COMMA)--gc-sections -ffunction-sections -O0)
+$(eval LIBC_CONFIG_GC_O1_FLAGS ?= -g -Wl$$(COMMA)--gc-sections -ffunction-sections -O1)
+$(eval LIBC_CONFIG_GC_O2_FLAGS ?= -g -Wl$$(COMMA)--gc-sections -ffunction-sections -O2)
+$(eval LIBC_CONFIG_GC_O3_FLAGS ?= -g -Wl$$(COMMA)--gc-sections -ffunction-sections -O3)
 $(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(call option,LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS,$(LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS),Compile flags for $(LIBC_CONFIG)))
 
 # $(1): target prefix for toolchain
