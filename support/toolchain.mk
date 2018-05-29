@@ -179,12 +179,14 @@ $(call patch-if-exists,$(PATCH_PATH)/musl-$(MUSL_VERSION)-printf-floating-point-
 	cd "$(2)" && cp arch/{arm,x86_64}/bits/float.h
 endef
 
+# Recent versions of musl have changed the path of the generated file alltypes.h
+# and we want take it into account without checking explicitly for specific musl
 define do-build-$(TOOLCHAIN_TARGET_PREFIX)musl-headers
-	make -C $(1) include/bits/alltypes.h
+	make -C $(1) include/bits/alltypes.h || make -C $(1) obj/include/bits/alltypes.h
 endef
 
 define do-install-$(TOOLCHAIN_TARGET_PREFIX)musl-headers
-	make -C $(1) include/bits/alltypes.h
+	make -C $(1) include/bits/alltypes.h || make -C $(1) obj/include/bits/alltypes.h
 	make -C $(1) install-headers
 endef
 
