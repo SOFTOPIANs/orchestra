@@ -287,7 +287,7 @@ all: $(ALL)
 clean:
 	rm -rf $(BUILD_PATH)/
 	rm -rf $(INSTALL_PATH)/
-	rm -rf $(ARCHIVE_PATH)/
+	rm -rf $(SOURCE_ARCHIVE_PATH)/
 
 .PHONY: help
 help:
