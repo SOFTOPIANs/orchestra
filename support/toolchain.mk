@@ -149,6 +149,9 @@ endef
 
 $$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)uclibc,$(1),config.log,$($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE1_INSTALL_TARGET_FILE)))
 
+$(TOOLCHAIN_VAR_PREFIX)LIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE := $$($(TOOLCHAIN_VAR_PREFIX)UCLIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE)
+$(TOOLCHAIN_TARGET_PREFIX)libc$(1): $(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
+
 endef
 
 $(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)UCLIBC,$(TOOLCHAIN_TARGET_PREFIX)uclibc,$(TOOLCHAIN_TARGET_PREFIX)uclibc-$(LIBC_DEFAULT_CONFIG)))
@@ -228,6 +231,9 @@ $$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl,$$(1),$$(2),$(2))
 endef
 
 $$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)musl,$(1),config.log,$($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE1_INSTALL_TARGET_FILE)))
+
+$(TOOLCHAIN_VAR_PREFIX)LIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE := $$($(TOOLCHAIN_VAR_PREFIX)MUSL$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE)
+$(TOOLCHAIN_TARGET_PREFIX)libc$(1): $(TOOLCHAIN_TARGET_PREFIX)musl$(1)
 
 endef
 
@@ -355,9 +361,77 @@ $(eval $(call autotools-component-source,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage2))
 $(eval $(call autotools-component-build,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage1,$($(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)LINUX_HEADERS_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)BINUTILS_INSTALL_TARGET_FILE) $(DEPS)))
 $(eval $(call autotools-component-build,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage2,$($(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE)))
 
+# toolchain
+# =========
+
 .PHONY: toolchain-$(TOOLCHAIN)
 toolchain-$(TOOLCHAIN): $(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
 
 toolchain: toolchain-$(TOOLCHAIN)
 
 $(eval TOOLCHAIN_INSTALL_TARGET_FILE += $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE2_INSTALL_TARGET_FILE))
+
+# coreutils
+# =========
+
+define do-clone-$(TOOLCHAIN_TARGET_PREFIX)coreutils
+endef
+
+# $(1): source path
+# $(2): build path
+# $(3): extra flags variable name
+# $(4): extra ldflags
+define do-configure-$(TOOLCHAIN_TARGET_PREFIX)coreutils
+	mkdir -p "$(2)"
+
+$(call download-tar,$(2),https://ftp.gnu.org/gnu/coreutils,coreutils-$(COREUTILS_VERSION).tar.xz)
+
+	source $(PWD)/environment; \
+	cd "$(2)"; \
+	"$(2)/configure" \
+	    --disable-dependency-tracking \
+	    --disable-nls \
+	    --disable-acl \
+	    --disable-single-binary \
+	    --disable-xattr \
+	    --without-gmp \
+	    --without-selinux \
+	    --disable-libcap \
+	    --host=$(TRIPLE) \
+	    --prefix=$(INSTALL_PATH)/$(TRIPLE) \
+	    LDFLAGS="$(4)" \
+	    CFLAGS="$(MUSL_CFLAGS) $($(3)) -Wno-error" \
+	    TIME_T_32_BIT_OK=yes
+endef
+
+# $(1): suffix
+# $(2): source path
+# $(3): build path
+# $(4): dependencies
+define $(TOOLCHAIN_TARGET_PREFIX)coreutils-template
+
+define do-configure-$(TOOLCHAIN_TARGET_PREFIX)coreutils$(1)
+$$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)coreutils,$$(1),$$(2),$(2),$(3))
+endef
+
+define do-build-$(TOOLCHAIN_TARGET_PREFIX)coreutils$(1)
+	source $(PWD)/environment; \
+$(call make,$$(1),)
+endef
+
+define do-install-$(TOOLCHAIN_TARGET_PREFIX)coreutils$(1)
+	source $(PWD)/environment; \
+$(call make,$$(1),)
+	source $(PWD)/environment; \
+$(call make,$$(1),install)
+endef
+
+$$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)coreutils,$(1),config.log,$(4)))
+
+endef
+
+$(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)COREUTILS,$(TOOLCHAIN_TARGET_PREFIX)coreutils,$(TOOLCHAIN_TARGET_PREFIX)coreutils-$(LIBC_DEFAULT_CONFIG)-static))
+$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)coreutils-template,-$(LIBC_CONFIG)-static,LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS,-static,environment $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE2_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)LIBC_$(call target-to-prefix,$(LIBC_CONFIG))_INSTALL_TARGET_FILE))))
+ifeq ($(DYNAMIC),1)
+$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)coreutils-template,-$(LIBC_CONFIG),LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS,,environment $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE2_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)LIBC_$(call target-to-prefix,$(LIBC_CONFIG))_INSTALL_TARGET_FILE))))
+endif

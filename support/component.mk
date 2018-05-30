@@ -93,8 +93,8 @@ endef
 
 # $(1): build path
 # $(2): extra arguments (in particular, build target)
+# We unset MAKEFLAGS to make sure we don't pass to submake weird flags
 define make
-# Make sure we don't pass to submake weird flags
 	MAKEFLAGS= make -C "$(1)" -j$(JOBS) $(2)
 endef
 

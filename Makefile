@@ -119,6 +119,8 @@ $(eval $(call simple-autotools-component,qemu,$(LLVM_INSTALL_TARGET_FILE)))
 # Toolchains
 # ==========
 
+$(call option,COREUTILS_VERSION,8.29,Version of coreutils to build)
+
 $(call option,LIBC_CONFIGS,default gc-o0 gc-o1 gc-o2 gc-o3,Name of the configurations of the libc to compile)
 $(call option,LIBC_DEFAULT_CONFIG,default,Name of the default configuration to use for the libc)
 $(eval LIBC_CONFIG_DEFAULT_FLAGS ?= -g)
@@ -146,6 +148,7 @@ $(eval CFLAGS_FOR_TARGET := $($(TMP)_CFLAGS_FOR_TARGET))
 $(eval MUSL_CFLAGS := $($(TMP)_MUSL_CFLAGS))
 $(eval MUSL_LIBCC := $($(TMP)_MUSL_LIBCC))
 $(eval DEPS := $($(TMP)_DEPS))
+$(eval DYNAMIC := $($(TMP)_DYNAMIC))
 )
 endef
 
@@ -160,6 +163,7 @@ $(call option,X86_64_CFLAGS_FOR_TARGET,-mlong-double-64 -O2 -g)
 $(call option,X86_64_MUSL_CFLAGS,-msoft-float -mfpmath=387 -mlong-double-64)
 $(call option,X86_64_MUSL_LIBCC,$(INSTALL_PATH)/lib/linux/libclang_rt.builtins-x86_64.a)
 $(call option,X86_64_DEPS,$(COMPILER_RT_INSTALL_TARGET_FILE))
+$(call option,X86_64_DYNAMIC,0)
 $(call prepare-for-toolchain,x86-64)
 include support/toolchain.mk
 
@@ -170,6 +174,7 @@ $(call option,I386_MUSL_VERSION,1.1.12)
 $(call option,I386_LINUX_VERSION,4.5.2)
 $(call option,I386_GCC_VERSION,4.9.3)
 $(call option,I386_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --enable-targets=all --without-isl)
+$(call option,I386_DYNAMIC,0)
 $(call prepare-for-toolchain,i386)
 include support/toolchain.mk
 
@@ -181,6 +186,7 @@ $(call option,ARM_UCLIBC_VERSION,0.9.33.2)
 $(call option,ARM_LINUX_VERSION,4.5.2)
 $(call option,ARM_GCC_VERSION,4.9.3)
 $(call option,ARM_EXTRA_GCC_CONFIGURE_OPTIONS,--enable-__cxa_atexit --enable-tls --enable-clocale=gnu --with-float=softfp --with-arch=armv7-a --without-cloog)
+$(call option,ARM_DYNAMIC,0)
 $(call prepare-for-toolchain,arm)
 include support/toolchain.mk
 
@@ -191,6 +197,7 @@ $(call option,MIPS_MUSL_VERSION,1.1.12)
 $(call option,MIPS_LINUX_VERSION,4.5.2)
 $(call option,MIPS_GCC_VERSION,5.3.0)
 $(call option,MIPS_EXTRA_GCC_CONFIGURE_OPTIONS,--with-abi= --without-isl)
+$(call option,MIPS_DYNAMIC,0)
 $(call prepare-for-toolchain,mips)
 include support/toolchain.mk
 
