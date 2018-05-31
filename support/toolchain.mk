@@ -147,7 +147,7 @@ define do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
 $$(call do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc,$$(1),$$(2),$(2))
 endef
 
-$$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)uclibc,$(1),config.log,$($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE1_INSTALL_TARGET_FILE)))
+$$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)uclibc,$(1),config.log,$($(TOOLCHAIN_VAR_PREFIX)GCC_INSTALL_TARGET_FILE)))
 
 $(TOOLCHAIN_VAR_PREFIX)LIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE := $$($(TOOLCHAIN_VAR_PREFIX)UCLIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE)
 $(TOOLCHAIN_TARGET_PREFIX)libc$(1): $(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
@@ -229,7 +229,7 @@ define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl$(1)
 $$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl,$$(1),$$(2),$(2))
 endef
 
-$$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)musl,$(1),config.log,$($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE1_INSTALL_TARGET_FILE)))
+$$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)musl,$(1),config.log,$($(TOOLCHAIN_VAR_PREFIX)GCC_INSTALL_TARGET_FILE)))
 
 $(TOOLCHAIN_VAR_PREFIX)LIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE := $$($(TOOLCHAIN_VAR_PREFIX)MUSL$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE)
 $(TOOLCHAIN_TARGET_PREFIX)libc$(1): $(TOOLCHAIN_TARGET_PREFIX)musl$(1)
@@ -338,7 +338,7 @@ define do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
 $(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc,$(1),$(2),--enable-languages=c,c++)
 endef
 
-$(eval $(call autotools-component-source,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage2))
+$(eval $(call autotools-component-source,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage1))
 $(eval $(call autotools-component-build,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage1,$($(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)LINUX_HEADERS_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)BINUTILS_INSTALL_TARGET_FILE) $(DEPS)))
 $(eval $(call autotools-component-build,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage2,$($(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE)))
 
