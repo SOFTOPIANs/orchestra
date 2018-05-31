@@ -1,5 +1,10 @@
+environment
+installed-targets/
+source-archives/
+build/
+root/
 llvm/
 qemu/
 revamb/
-build/
-root/
+toolchain/
+binary-archives/

@@ -1,0 +1,2 @@
+unset INSTALL_PATH
+unset -f prepend_path
