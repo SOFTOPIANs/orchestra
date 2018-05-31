@@ -393,7 +393,8 @@ $(call download-tar,$(2),https://ftp.gnu.org/gnu/coreutils,coreutils-$(COREUTILS
 	    --prefix=$(INSTALL_PATH)/$(TRIPLE) \
 	    LDFLAGS="$(4)" \
 	    CFLAGS="$(MUSL_CFLAGS) $($(3)) -Wno-error" \
-	    TIME_T_32_BIT_OK=yes
+	    TIME_T_32_BIT_OK=yes \
+	    FORCE_UNSAFE_CONFIGURE=1
 endef
 
 # $(1): suffix
