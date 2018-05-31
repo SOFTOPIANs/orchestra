@@ -54,8 +54,7 @@ help-components:
 
 # $(1): file to touch
 define touch
-	mkdir -p $(dir $(1))
-	touch $(1)
+	mkdir -p $(dir $(1)) && touch $(1)
 endef
 
 define string-to-suffix
@@ -256,6 +255,7 @@ $(if $(do-install-$($(1)_TARGET_NAME)),
 $(call do-install-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH)),
 $(call make,$($(1)_BUILD_PATH),)
 $(call make,$($(1)_BUILD_PATH),install))
+	rm -f $($(6)_INSTALL_TARGET_FILE)*
 $(call touch,$($(6)_INSTALL_TARGET_FILE))
 $(call touch,$($(1)_INSTALL_TARGET_FILE))
 
