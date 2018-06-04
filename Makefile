@@ -244,7 +244,6 @@ define print-prepend-path
 
 endef
 
-.PHONY: environment
 environment:
 	cat support/environment-header > environment
 	echo >> environment
