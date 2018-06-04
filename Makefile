@@ -302,3 +302,13 @@ create-binary-archive: $(foreach COMPONENT,$(COMPONENTS),create-binary-archive-$
 
 .PHONY: create-binary-archive-all
 create-binary-archive-all: $(foreach COMPONENT,$(COMPONENTS),$(foreach BUILD,$($(COMPONENT)_BUILDS),create-binary-archive-$($(BUILD)_TARGET_NAME)))
+
+
+# make2graph
+# ==========
+
+$(call option,CC,cc,Host compiler)
+
+support/make2graph: support/make2graph.c
+	$(CC) $^ -o $@
+
