@@ -58,7 +58,8 @@ define do-configure-$(TOOLCHAIN_TARGET_PREFIX)binutils
 	    --disable-libdecnumber \
 	    --disable-readline \
 	    --disable-sim \
-	    --without-stage1-ldflags
+	    --without-stage1-ldflags \
+	    CFLAGS="-w -ggdb3 -O2" CXXFLAGS="-w -ggdb3 -O2"
 endef
 
 $(eval $(call simple-autotools-component,$(TOOLCHAIN_TARGET_PREFIX)binutils,))
@@ -327,7 +328,8 @@ define do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc
 	        --enable-lto \
 	        --disable-libsanitizer \
 	        $(EXTRA_GCC_CONFIGURE_OPTIONS) \
-	        $(3)
+	        $(3) \
+	        CFLAGS="-w -ggdb3 -O2" CXXFLAGS="-w -ggdb3 -O2"
 endef
 
 define do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage1
