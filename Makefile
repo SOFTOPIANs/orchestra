@@ -23,9 +23,29 @@ help:
 
 include support/option.mk
 
-$(call option, \
+define strip-call
+$(call $(strip $(1)),$(strip $(2)),$(strip $(3)),$(strip $(4)),$(strip $(5)),$(strip $(6)),$(strip $(7)),$(strip $(8)),$(strip $(9)),$(strip $(10)),$(strip $(11)),$(strip $(12)),$(strip $(13)),$(strip $(14)),$(strip $(15)))
+endef
+
+$(call strip-call,option, \
   BINARY_COMPONENTS, \
-  boost llvm toolchain/mips/gcc toolchain/arm/gcc toolchain/i386/gcc \
+  boost \
+    llvm \
+    toolchain/arm/binutils \
+    toolchain/arm/linux-headers \
+    toolchain/arm/uclibc \
+    toolchain/arm/gcc \
+    toolchain/mips/binutils \
+    toolchain/mips/linux-headers \
+    toolchain/mips/musl \
+    toolchain/mips/gcc \
+    toolchain/i386/binutils \
+    toolchain/i386/linux-headers \
+    toolchain/i386/musl \
+    toolchain/i386/gcc \
+    toolchain/x86-64/binutils \
+    toolchain/x86-64/linux-headers \
+    toolchain/x86-64/musl \
     toolchain/x86-64/gcc, \
   List of components for which binary archives should be used)
 
@@ -72,7 +92,16 @@ $(CLANG_SOURCE_TARGET_FILE):
 	$(call clone,clang,$(CLANG_SOURCE_PATH))
 	$(call touch,$(CLANG_SOURCE_TARGET_FILE))
 
-$(eval $(call multi-build-cmake-component,llvm,$(CLANG_SOURCE_TARGET_FILE),release,debug))
+$(eval \
+  $(call strip-call, \
+    multi-build-cmake-component, \
+    llvm, \
+    release, \
+    $(CLANG_SOURCE_TARGET_FILE), \
+    , \
+    , \
+    release, \
+    debug))
 
 # QEMU
 # ====
@@ -97,7 +126,10 @@ define do-configure-qemu
 	    --python=$(shell which python2)
 endef
 
-$(eval $(call simple-autotools-component,qemu,$(LLVM_INSTALL_TARGET_FILE)))
+$(eval \
+  $(call strip-call,simple-autotools-component, \
+    qemu, \
+    $(LLVM_INSTALL_TARGET_FILE)))
 
 # Toolchains
 # ==========
@@ -129,7 +161,6 @@ $(eval GCC_VERSION := $($(TMP)_GCC_VERSION))
 $(eval EXTRA_GCC_CONFIGURE_OPTIONS := $($(TMP)_EXTRA_GCC_CONFIGURE_OPTIONS))
 $(eval MUSL_CFLAGS := $($(TMP)_MUSL_CFLAGS))
 $(eval MUSL_LIBCC := $($(TMP)_MUSL_LIBCC))
-$(eval DEPS := $($(TMP)_DEPS))
 $(eval DYNAMIC := $($(TMP)_DYNAMIC))
 )
 endef
@@ -141,7 +172,6 @@ $(call option,X86_64_MUSL_VERSION,1.1.12)
 $(call option,X86_64_LINUX_VERSION,4.5.2)
 $(call option,X86_64_GCC_VERSION,4.9.3)
 $(call option,X86_64_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --enable-targets=all --with-multilib-list=m64 --without-isl)
-$(call option,X86_64_DEPS,$(COMPILER_RT_INSTALL_TARGET_FILE))
 $(call option,X86_64_DYNAMIC,0)
 $(call prepare-for-toolchain,x86-64)
 include support/toolchain.mk
@@ -202,7 +232,9 @@ $(call download-tar,$(2),https://sourceforge.net/projects/boost/files/boost/1.63
 endef
 
 $(eval $(call component-base,BOOST,boost,boost))
-$(eval $(call simple-component-build,boost,,,))
+$(eval \
+  $(call strip-call,simple-component-build, \
+    boost))
 
 # environment
 # ===========
@@ -255,7 +287,16 @@ define do-test-revamb
 	ctest -j$(JOBS)
 endef
 
-$(eval $(call simple-cmake-component,revamb,$(LLVM_INSTALL_TARGET_FILE) $(QEMU_INSTALL_TARGET_FILE) $(BOOST_INSTALL_TARGET_FILE) environment | $(TOOLCHAIN_INSTALL_TARGET_FILE)))
+$(eval \
+  $(call strip-call,simple-cmake-component, \
+    revamb, \
+    , \
+    , \
+    $(LLVM_INSTALL_TARGET_FILE) \
+      $(QEMU_INSTALL_TARGET_FILE) \
+      $(BOOST_INSTALL_TARGET_FILE) \
+      environment \
+      | $(TOOLCHAIN_INSTALL_TARGET_FILE)))
 
 # Default targets
 # ===============

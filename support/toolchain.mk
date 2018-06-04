@@ -62,190 +62,9 @@ define do-configure-$(TOOLCHAIN_TARGET_PREFIX)binutils
 	    CFLAGS="-w -ggdb3 -O2" CXXFLAGS="-w -ggdb3 -O2"
 endef
 
-$(eval $(call simple-autotools-component,$(TOOLCHAIN_TARGET_PREFIX)binutils,))
-
-ifdef UCLIBC_VERSION
-
-# uClibc
-# ======
-
-# headers
-# -------
-
-# $(1): source path
-# $(2): build path
-# $(3): extra flags variable name
-define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common
-	mkdir -p "$(2)"
-
-$(call download-tar,$(2),https://uclibc.org/downloads,uClibc-$(UCLIBC_VERSION).tar.bz2)
-	cd "$(2)" && \
-	  make ARCH=$(UCLIBC_ARCH_NAME) defconfig && \
-	  cp "$(PATCH_PATH)/uClibc.config" .config && \
-	  sed 's|$$$$INSTALL_PATH|'"$(INSTALL_PATH)"'|g' .config -i && \
-	  sed 's|$$$$FLAGS|'"$($(3))"'|g' .config -i && \
-	  yes "" | make oldconfig && \
-	  patch -p1 < "$(PATCH_PATH)/blt-blo.patch" && \
-	  sed 's|^typedef __kernel_dev_t\s*__kernel_old_dev_t;$$$$|\0\ntypedef long __kernel_long_t;\ntypedef unsigned long __kernel_ulong_t;|' libc/sysdeps/linux/arm/bits/kernel_types.h -i
-endef
-
-define do-build-$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
-	make -C $(1) headers
-endef
-
-define do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
-	make -C $(1) headers
-	make -C $(1) DESTDIR="$$$$DESTDIR$(INSTALL_PATH)/usr/$(TRIPLE)" install_headers
-endef
-
-# $(1): source path
-# $(2): build path
-# $(3): extra flags variable name
-define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
-$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common,$(1),$(2),$(3))
-endef
-
-$(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)UCLIBC_HEADERS,$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers,$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers))
-$(eval $(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers,,config.log,))
-
-$(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)UCLIBC_HEADERS_INSTALL_TARGET_FILE)
-$(TOOLCHAIN_TARGET_PREFIX)libc-headers: $(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
-
-# Actual builds
-# -------------
-
-# $(1): source path
-# $(2): build path
-# $(3): extra flags variable name
-define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc
-$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common,$(1),$(2),$(3))
-endef
-
-
-define do-build-$(TOOLCHAIN_TARGET_PREFIX)uclibc
-	PATH="$(NEW_GCC_PATH):$(BINUTILS_PATH):$$$$PATH" make -C $(1)
-endef
-
-define do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc
-	PATH="$(NEW_GCC_PATH):$(BINUTILS_PATH):$$$$PATH" make -C $(1)
-	PATH="$(NEW_GCC_PATH):$(BINUTILS_PATH):$$$$PATH" make -C $(1) install DESTDIR="$$$$DESTDIR$(INSTALL_PATH)/usr/$(TRIPLE)"
-endef
-
-# $(1): build suffix
-# $(2): extra flags variable name
-define $(TOOLCHAIN_TARGET_PREFIX)uclibc-template
-
-define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
-$$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc,$$(1),$$(2),$(2))
-endef
-
-define do-build-$(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
-$$(call do-build-$(TOOLCHAIN_TARGET_PREFIX)uclibc,$$(1),$$(2),$(2))
-endef
-
-define do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
-$$(call do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc,$$(1),$$(2),$(2))
-endef
-
-$$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)uclibc,$(1),config.log,$($(TOOLCHAIN_VAR_PREFIX)GCC_INSTALL_TARGET_FILE)))
-
-$(TOOLCHAIN_VAR_PREFIX)LIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE := $$($(TOOLCHAIN_VAR_PREFIX)UCLIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE)
-$(TOOLCHAIN_TARGET_PREFIX)libc$(1): $(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
-
-endef
-
-$(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)UCLIBC,$(TOOLCHAIN_TARGET_PREFIX)uclibc,$(TOOLCHAIN_TARGET_PREFIX)uclibc-$(LIBC_DEFAULT_CONFIG)))
-$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)uclibc-template,-$(LIBC_CONFIG),LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS)))
-
-$(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)UCLIBC_INSTALL_TARGET_FILE)
-$(TOOLCHAIN_TARGET_PREFIX)libc: $(TOOLCHAIN_TARGET_PREFIX)uclibc
-
-endif
-
-ifdef MUSL_VERSION
-
-# musl
-# ====
-
-# headers
-# -------
-
-# $(1): source path
-# $(2): build path
-define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common
-	mkdir -p "$(2)"
-
-$(call download-tar,$(2),http://www.musl-libc.org/releases/,musl-$(MUSL_VERSION).tar.gz)
-
-$(call patch-if-exists,$(PATCH_PATH)/musl-$(MUSL_VERSION)-printf-floating-point-rounding.patch,$(2))
-
-endef
-
-# Recent versions of musl have changed the path of the generated file alltypes.h
-# and we want take it into account without checking explicitly for specific musl
-define do-build-$(TOOLCHAIN_TARGET_PREFIX)musl-headers
-	make -C $(1) include/bits/alltypes.h || make -C $(1) obj/include/bits/alltypes.h
-endef
-
-define do-install-$(TOOLCHAIN_TARGET_PREFIX)musl-headers
-	make -C $(1) include/bits/alltypes.h || make -C $(1) obj/include/bits/alltypes.h
-	make -C $(1) install-headers
-endef
-
-# $(1): source path
-# $(2): build path
-define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-headers
-$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common,$(1),$(2))
-	cd "$(2)" && CC=true "$(2)/configure" \
-	        --target=$(TRIPLE) \
-	        --prefix="$(INSTALL_PATH)/usr/$(TRIPLE)/usr" \
-	        --syslibdir="$(INSTALL_PATH)/usr/$(TRIPLE)/lib" \
-	        --disable-gcc-wrapper
-endef
-
-$(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)MUSL_HEADERS,$(TOOLCHAIN_TARGET_PREFIX)musl-headers,$(TOOLCHAIN_TARGET_PREFIX)musl-headers))
-$(eval $(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)musl-headers,,config.log,))
-
-# $(1): source path
-# $(2): build path
-# $(3): extra flags variable name
-define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl
-$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common,$(1),$(2))
-	cd "$(2)" && CC="$(NEW_GCC)" \
-	LIBCC="$(MUSL_LIBCC)" \
-	CFLAGS="$(MUSL_CFLAGS) $($(3))" \
-	"$(2)/configure" \
-	        --target=$(TRIPLE) \
-	        --prefix="$(INSTALL_PATH)/usr/$(TRIPLE)/usr" \
-	        --syslibdir="$(INSTALL_PATH)/usr/$(TRIPLE)/lib" \
-	        --disable-gcc-wrapper
-endef
-
-# $(1): build suffix
-# $(2): extra flags variable name
-define $(TOOLCHAIN_TARGET_PREFIX)musl-template
-
-define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl$(1)
-$$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl,$$(1),$$(2),$(2))
-endef
-
-$$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)musl,$(1),config.log,$($(TOOLCHAIN_VAR_PREFIX)GCC_INSTALL_TARGET_FILE)))
-
-$(TOOLCHAIN_VAR_PREFIX)LIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE := $$($(TOOLCHAIN_VAR_PREFIX)MUSL$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE)
-$(TOOLCHAIN_TARGET_PREFIX)libc$(1): $(TOOLCHAIN_TARGET_PREFIX)musl$(1)
-
-endef
-
-$(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)MUSL,$(TOOLCHAIN_TARGET_PREFIX)musl,$(TOOLCHAIN_TARGET_PREFIX)musl-$(LIBC_DEFAULT_CONFIG)))
-$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)musl-template,-$(LIBC_CONFIG),LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS)))
-
-$(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)MUSL_HEADERS_INSTALL_TARGET_FILE)
-$(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)MUSL_INSTALL_TARGET_FILE)
-
-$(TOOLCHAIN_TARGET_PREFIX)libc-headers: $(TOOLCHAIN_TARGET_PREFIX)musl-headers
-$(TOOLCHAIN_TARGET_PREFIX)libc: $(TOOLCHAIN_TARGET_PREFIX)musl
-
-endif
+$(eval \
+  $(call strip-call,simple-autotools-component, \
+    $(TOOLCHAIN_TARGET_PREFIX)binutils))
 
 # Linux headers
 # =============
@@ -267,8 +86,17 @@ $(call download-tar,$(2),https://cdn.kernel.org/pub/linux/kernel/v4.x,linux-$(LI
 
 endef
 
-$(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)LINUX_HEADERS,$(TOOLCHAIN_TARGET_PREFIX)linux-headers,$(TOOLCHAIN_TARGET_PREFIX)linux-headers))
-$(eval $(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)linux-headers,,Makefile,))
+$(eval \
+  $(call strip-call,component-base, \
+    $(TOOLCHAIN_VAR_PREFIX)LINUX_HEADERS, \
+    $(TOOLCHAIN_TARGET_PREFIX)linux-headers, \
+    $(TOOLCHAIN_TARGET_PREFIX)linux-headers))
+
+$(eval \
+  $(call strip-call,simple-component-build, \
+     $(TOOLCHAIN_TARGET_PREFIX)linux-headers, \
+     , \
+     Makefile))
 
 # GCC
 # ===
@@ -339,22 +167,268 @@ define do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
 $(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc,$(1),$(2),--enable-languages=c,c++)
 endef
 
-$(eval $(call autotools-component-source,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage1))
-$(eval $(call autotools-component-build,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage1,$($(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)LINUX_HEADERS_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)BINUTILS_INSTALL_TARGET_FILE) $(DEPS)))
-$(eval $(call autotools-component-build,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage2,$($(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE)))
+$(eval \
+  $(call strip-call,autotools-component-source, \
+    $(TOOLCHAIN_TARGET_PREFIX)gcc, \
+    -stage2))
+
+ifdef UCLIBC_VERSION
+
+# uClibc
+# ======
+
+# headers
+# -------
+
+# $(1): source path
+# $(2): build path
+# $(3): extra flags variable name
+define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common
+	mkdir -p "$(2)"
+
+$(call download-tar,$(2),https://uclibc.org/downloads,uClibc-$(UCLIBC_VERSION).tar.bz2)
+	cd "$(2)" && \
+	  make ARCH=$(UCLIBC_ARCH_NAME) defconfig && \
+	  cp "$(PATCH_PATH)/uClibc.config" .config && \
+	  sed 's|$$$$INSTALL_PATH|'"$(INSTALL_PATH)"'|g' .config -i && \
+	  sed 's|$$$$FLAGS|'"$($(3))"'|g' .config -i && \
+	  yes "" | make oldconfig && \
+	  patch -p1 < "$(PATCH_PATH)/blt-blo.patch" && \
+	  sed 's|^typedef __kernel_dev_t\s*__kernel_old_dev_t;$$$$|\0\ntypedef long __kernel_long_t;\ntypedef unsigned long __kernel_ulong_t;|' libc/sysdeps/linux/arm/bits/kernel_types.h -i
+endef
+
+define do-build-$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
+	make -C $(1) headers
+endef
+
+define do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
+	make -C $(1) headers
+	make -C $(1) DESTDIR="$$$$DESTDIR$(INSTALL_PATH)/usr/$(TRIPLE)" install_headers
+endef
+
+# $(1): source path
+# $(2): build path
+# $(3): extra flags variable name
+define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
+$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common,$(1),$(2),$(3))
+endef
+
+# Actual builds
+# -------------
+
+# $(1): source path
+# $(2): build path
+# $(3): extra flags variable name
+define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc
+$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc-common,$(1),$(2),$(3))
+endef
+
+
+define do-build-$(TOOLCHAIN_TARGET_PREFIX)uclibc
+	PATH="$(NEW_GCC_PATH):$(BINUTILS_PATH):$$$$PATH" make -C $(1)
+endef
+
+define do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc
+	PATH="$(NEW_GCC_PATH):$(BINUTILS_PATH):$$$$PATH" make -C $(1)
+	PATH="$(NEW_GCC_PATH):$(BINUTILS_PATH):$$$$PATH" make -C $(1) install DESTDIR="$$$$DESTDIR$(INSTALL_PATH)/usr/$(TRIPLE)"
+endef
+
+# $(1): build suffix
+# $(2): extra flags variable name
+define $(TOOLCHAIN_TARGET_PREFIX)uclibc-template
+
+define do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
+$$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc,$$(1),$$(2),$(2))
+endef
+
+define do-build-$(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
+$$(call do-build-$(TOOLCHAIN_TARGET_PREFIX)uclibc,$$(1),$$(2),$(2))
+endef
+
+define do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
+$$(call do-install-$(TOOLCHAIN_TARGET_PREFIX)uclibc,$$(1),$$(2),$(2))
+endef
+
+$$(eval \
+  $$(call strip-call,simple-component-build, \
+    $(TOOLCHAIN_TARGET_PREFIX)uclibc, \
+    $(1), \
+    config.log, \
+    $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE1_INSTALL_TARGET_FILE), \
+    -headers))
+
+$(TOOLCHAIN_VAR_PREFIX)LIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE := $$($(TOOLCHAIN_VAR_PREFIX)UCLIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE)
+$(TOOLCHAIN_TARGET_PREFIX)libc$(1): $(TOOLCHAIN_TARGET_PREFIX)uclibc$(1)
+
+endef
+
+$(eval \
+  $(call strip-call,component-base, \
+    $(TOOLCHAIN_VAR_PREFIX)UCLIBC, \
+    $(TOOLCHAIN_TARGET_PREFIX)uclibc, \
+    $(TOOLCHAIN_TARGET_PREFIX)uclibc-$(LIBC_DEFAULT_CONFIG)))
+
+# -headers
+$(eval \
+  $(call strip-call,simple-component-build, \
+    $(TOOLCHAIN_TARGET_PREFIX)uclibc, \
+    -headers, \
+    config.log))
+
+$(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)UCLIBC_HEADERS_INSTALL_TARGET_FILE)
+$(TOOLCHAIN_TARGET_PREFIX)libc-headers: $(TOOLCHAIN_TARGET_PREFIX)uclibc-headers
+
+# Actual builds
+$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)uclibc-template,-$(LIBC_CONFIG),LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS)))
+
+$(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)UCLIBC_INSTALL_TARGET_FILE)
+$(TOOLCHAIN_TARGET_PREFIX)libc: $(TOOLCHAIN_TARGET_PREFIX)uclibc
+clean-$(TOOLCHAIN_TARGET_PREFIX)libc: clean-$(TOOLCHAIN_TARGET_PREFIX)uclibc
+configure-$(TOOLCHAIN_TARGET_PREFIX)libc: configure-$(TOOLCHAIN_TARGET_PREFIX)uclibc
+build-$(TOOLCHAIN_TARGET_PREFIX)libc: build-$(TOOLCHAIN_TARGET_PREFIX)uclibc
+install-$(TOOLCHAIN_TARGET_PREFIX)libc: install-$(TOOLCHAIN_TARGET_PREFIX)uclibc
+test-$(TOOLCHAIN_TARGET_PREFIX)libc: test-$(TOOLCHAIN_TARGET_PREFIX)uclibc
+
+endif
+
+ifdef MUSL_VERSION
+
+# musl
+# ====
+
+# headers
+# -------
+
+# $(1): source path
+# $(2): build path
+define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common
+	mkdir -p "$(2)"
+
+$(call download-tar,$(2),http://www.musl-libc.org/releases/,musl-$(MUSL_VERSION).tar.gz)
+
+$(call patch-if-exists,$(PATCH_PATH)/musl-$(MUSL_VERSION)-printf-floating-point-rounding.patch,$(2))
+
+endef
+
+# Recent versions of musl have changed the path of the generated file alltypes.h
+# and we want take it into account without checking explicitly for specific musl
+define do-build-$(TOOLCHAIN_TARGET_PREFIX)musl-headers
+	make -C $(1) include/bits/alltypes.h || make -C $(1) obj/include/bits/alltypes.h
+endef
+
+define do-install-$(TOOLCHAIN_TARGET_PREFIX)musl-headers
+	make -C $(1) include/bits/alltypes.h || make -C $(1) obj/include/bits/alltypes.h
+	make -C $(1) install-headers
+endef
+
+# $(1): source path
+# $(2): build path
+define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-headers
+$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common,$(1),$(2))
+	cd "$(2)" && CC=true "$(2)/configure" \
+	        --target=$(TRIPLE) \
+	        --prefix="$(INSTALL_PATH)/usr/$(TRIPLE)/usr" \
+	        --syslibdir="$(INSTALL_PATH)/usr/$(TRIPLE)/lib" \
+	        --disable-gcc-wrapper
+endef
+
+# $(1): source path
+# $(2): build path
+# $(3): extra flags variable name
+define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl
+$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common,$(1),$(2))
+	cd "$(2)" && CC="$(NEW_GCC)" \
+	LIBCC="$(MUSL_LIBCC)" \
+	CFLAGS="$(MUSL_CFLAGS) $($(3))" \
+	"$(2)/configure" \
+	        --target=$(TRIPLE) \
+	        --prefix="$(INSTALL_PATH)/usr/$(TRIPLE)/usr" \
+	        --syslibdir="$(INSTALL_PATH)/usr/$(TRIPLE)/lib" \
+	        --disable-gcc-wrapper
+endef
+
+# $(1): build suffix
+# $(2): extra flags variable name
+define $(TOOLCHAIN_TARGET_PREFIX)musl-template
+
+define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl$(1)
+$$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl,$$(1),$$(2),$(2))
+endef
+
+$$(eval \
+  $$(call strip-call,simple-component-build, \
+    $(TOOLCHAIN_TARGET_PREFIX)musl, \
+    $(1), \
+    config.log, \
+    $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE1_INSTALL_TARGET_FILE), \
+    -headers))
+
+$(TOOLCHAIN_VAR_PREFIX)LIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE := $$($(TOOLCHAIN_VAR_PREFIX)MUSL$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE)
+$(TOOLCHAIN_TARGET_PREFIX)libc$(1): $(TOOLCHAIN_TARGET_PREFIX)musl$(1)
+
+endef
+
+$(eval \
+  $(call strip-call,component-base, \
+    $(TOOLCHAIN_VAR_PREFIX)MUSL, \
+    $(TOOLCHAIN_TARGET_PREFIX)musl, \
+    $(TOOLCHAIN_TARGET_PREFIX)musl-$(LIBC_DEFAULT_CONFIG)))
+
+# -headers
+#$(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)MUSL_HEADERS,$(TOOLCHAIN_TARGET_PREFIX)musl-headers,$(TOOLCHAIN_TARGET_PREFIX)musl-headers))
+$(eval \
+  $(call strip-call,simple-component-build, \
+    $(TOOLCHAIN_TARGET_PREFIX)musl, \
+    -headers, \
+    config.log))
+
+# Actual builds
+$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)musl-template,-$(LIBC_CONFIG),LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS)))
+
+$(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)MUSL_HEADERS_INSTALL_TARGET_FILE)
+$(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)MUSL_INSTALL_TARGET_FILE)
+
+$(TOOLCHAIN_TARGET_PREFIX)libc-headers: $(TOOLCHAIN_TARGET_PREFIX)musl-headers
+$(TOOLCHAIN_TARGET_PREFIX)libc: $(TOOLCHAIN_TARGET_PREFIX)musl
+clean-$(TOOLCHAIN_TARGET_PREFIX)libc: clean-$(TOOLCHAIN_TARGET_PREFIX)musl
+configure-$(TOOLCHAIN_TARGET_PREFIX)libc: configure-$(TOOLCHAIN_TARGET_PREFIX)musl
+build-$(TOOLCHAIN_TARGET_PREFIX)libc: build-$(TOOLCHAIN_TARGET_PREFIX)musl
+install-$(TOOLCHAIN_TARGET_PREFIX)libc: install-$(TOOLCHAIN_TARGET_PREFIX)musl
+test-$(TOOLCHAIN_TARGET_PREFIX)libc: test-$(TOOLCHAIN_TARGET_PREFIX)musl
+
+endif
+
+# Create GCC builds
+$(eval \
+  $(call strip-call,autotools-component-build, \
+    $(TOOLCHAIN_TARGET_PREFIX)gcc, \
+    -stage1, \
+    $($(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE)))
+
+$(eval \
+  $(call strip-call,autotools-component-build, \
+    $(TOOLCHAIN_TARGET_PREFIX)gcc, \
+    -stage2, \
+    , \
+    -stage1, \
+    $($(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE) \
+      $($(TOOLCHAIN_VAR_PREFIX)LINUX_HEADERS_INSTALL_TARGET_FILE) \
+      $($(TOOLCHAIN_VAR_PREFIX)BINUTILS_INSTALL_TARGET_FILE)))
 
 # toolchain
 # =========
 
-.PHONY: toolchain/$(TOOLCHAIN) configure-toolchain/$(TOOLCHAIN) build-toolchain/$(TOOLCHAIN) install-toolchain/$(TOOLCHAIN) test-toolchain/$(TOOLCHAIN)
-toolchain/$(TOOLCHAIN): $(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
-configure-toolchain/$(TOOLCHAIN): configure-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
-build-toolchain/$(TOOLCHAIN): build-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
-install-toolchain/$(TOOLCHAIN): install-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
-test-toolchain/$(TOOLCHAIN): test-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
+.PHONY: toolchain/$(TOOLCHAIN) clean-toolchain/$(TOOLCHAIN) configure-toolchain/$(TOOLCHAIN) build-toolchain/$(TOOLCHAIN) install-toolchain/$(TOOLCHAIN) test-toolchain/$(TOOLCHAIN)
+toolchain/$(TOOLCHAIN): $(TOOLCHAIN_TARGET_PREFIX)gcc
+clean-toolchain/$(TOOLCHAIN): clean-$(TOOLCHAIN_TARGET_PREFIX)gcc clean-$(TOOLCHAIN_TARGET_PREFIX)binutils clean-$(TOOLCHAIN_TARGET_PREFIX)linux-headers clean-$(TOOLCHAIN_TARGET_PREFIX)coreutils clean-$(TOOLCHAIN_TARGET_PREFIX)libc
+configure-toolchain/$(TOOLCHAIN): configure-$(TOOLCHAIN_TARGET_PREFIX)gcc
+build-toolchain/$(TOOLCHAIN): build-$(TOOLCHAIN_TARGET_PREFIX)gcc
+install-toolchain/$(TOOLCHAIN): install-$(TOOLCHAIN_TARGET_PREFIX)gcc
+test-toolchain/$(TOOLCHAIN): test-$(TOOLCHAIN_TARGET_PREFIX)gcc
 
-.PHONY: toolchain configure-toolchain build-toolchain install-toolchain test-toolchain
+.PHONY: toolchain clean-toolchain configure-toolchain build-toolchain install-toolchain test-toolchain
 toolchain: toolchain/$(TOOLCHAIN)
+clean-toolchain: clean-toolchain/$(TOOLCHAIN)
 configure-toolchain: configure-toolchain/$(TOOLCHAIN)
 build-toolchain: build-toolchain/$(TOOLCHAIN)
 install-toolchain: install-toolchain/$(TOOLCHAIN)
@@ -418,12 +492,38 @@ $(call make,$$(1),)
 $(call make,$$(1),install)
 endef
 
-$$(eval $$(call simple-component-build,$(TOOLCHAIN_TARGET_PREFIX)coreutils,$(1),config.log,$(4)))
+$$(eval \
+  $$(call strip-call, \
+    simple-component-build, \
+    $(TOOLCHAIN_TARGET_PREFIX)coreutils, \
+    $(1), \
+    config.log, \
+    $(4)))
 
 endef
 
-$(eval $(call component-base,$(TOOLCHAIN_VAR_PREFIX)COREUTILS,$(TOOLCHAIN_TARGET_PREFIX)coreutils,$(TOOLCHAIN_TARGET_PREFIX)coreutils-$(LIBC_DEFAULT_CONFIG)-static))
-$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)coreutils-template,-$(LIBC_CONFIG)-static,LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS,-static,environment $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE2_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)LIBC_$(call target-to-prefix,$(LIBC_CONFIG))_INSTALL_TARGET_FILE))))
+$(eval \
+  $(call strip-call, \
+    component-base, \
+    $(TOOLCHAIN_VAR_PREFIX)COREUTILS, \
+    $(TOOLCHAIN_TARGET_PREFIX)coreutils, \
+    $(TOOLCHAIN_TARGET_PREFIX)coreutils-$(LIBC_DEFAULT_CONFIG)-static))
+$(foreach LIBC_CONFIG,$(LIBC_CONFIGS), \
+  $(eval \
+    $(call strip-call, \
+      $(TOOLCHAIN_TARGET_PREFIX)coreutils-template, \
+      -$(LIBC_CONFIG)-static, \
+      LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS, \
+      -static, \
+      environment $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE2_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)LIBC_$(call target-to-prefix,$(LIBC_CONFIG))_INSTALL_TARGET_FILE))))
+
 ifeq ($(DYNAMIC),1)
-$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)coreutils-template,-$(LIBC_CONFIG),LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS,,environment $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE2_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)LIBC_$(call target-to-prefix,$(LIBC_CONFIG))_INSTALL_TARGET_FILE))))
+$(foreach LIBC_CONFIG,$(LIBC_CONFIGS), \
+  $(eval \
+    $(call strip-call, \
+      $(TOOLCHAIN_TARGET_PREFIX)coreutils-template, \
+      -$(LIBC_CONFIG), \
+      LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS, \
+      , \
+      environment $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE2_INSTALL_TARGET_FILE) $($(TOOLCHAIN_VAR_PREFIX)LIBC_$(call target-to-prefix,$(LIBC_CONFIG))_INSTALL_TARGET_FILE))))
 endif

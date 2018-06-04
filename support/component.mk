@@ -24,7 +24,7 @@ $(call option,TEMP_INSTALL_PATH,$(PWD)/temp-install,Path for installing componen
 $(call option,INSTALLED_TARGETS_PATH,$(PWD)/installed-targets,Path for the file to indicate that a certain build/component has been installed)
 $(call option,REMOTES,$(shell ./get-remote),Space-separated list of remotes of the current repository to try, one after the other, while cloning sources)
 $(call option,REMOTES_BASE_URL,$(foreach REMOTE,$(REMOTES),$(dir $(shell git config --get remote.$(REMOTE).url))),Space-separated list of repository base URLs to try, one after the other, while cloning sources)
-$(call option,BRANCHES,develop master,Space-separated list of git refs such as branches to try to checkout after the sources have been cloned)
+$(call option,BRANCHES,$(shell git name-rev --name-only HEAD) develop master,Space-separated list of git refs such as branches to try to checkout after the sources have been cloned)
 $(call option,CLONE_ATTEMPTS,3,Attempts to clone a remote before giving up)
 $(call option,CLONE_ATTEMPTS_PAUSE,10,Seconds to wait before an attempt to clone a remote and the next one)
 $(eval CLONE_ATTEMPTS_LOOP := $(shell seq $(CLONE_ATTEMPTS)))
@@ -36,15 +36,16 @@ endef
 
 # $(1): build target name
 # $(2): default build target name
+# $(3): component target name
 define print-component-build
-	@echo '  '$($(1)_TARGET_NAME)$(if $($(1)_CONFIGURE_DEPS),' (depends on: '$(subst |,[order only:],$($(1)_CONFIGURE_DEPS))')',)$(if $(filter $(2),$(1)),' [default]',)
+	@echo '  '$($(1)_TARGET_NAME)$(if $($(1)_CONFIGURE_DEPS),' [configure deps: '$(subst |,[order only:],$($(1)_CONFIGURE_DEPS))']',)$(if $($(1)_INSTALL_DEPS),' [install deps: '$(subst |,[order only:],$($(1)_INSTALL_DEPS))']',)$(if $(filter $(2),$(1)),' [default]',)$(if $($(1)_PROVIDES),' [provides $(3)$($(1)_PROVIDES)]',)
 
 endef
 
 define print-component
 	@echo 'Component '$($(1)_TARGET_NAME)
 	$(eval TMP := $(call target-to-prefix,$($(1)_DEFAULT_BUILD)))
-	$(foreach BUILD,$($(1)_BUILDS),$(call print-component-build,$(BUILD),$(TMP)))
+	$(foreach BUILD,$($(1)_BUILDS),$(call print-component-build,$(BUILD),$(TMP),$($(1)_TARGET_NAME)))
 	@echo
 
 endef
@@ -55,7 +56,7 @@ help-components:
 
 # $(1): file to touch
 define touch
-	mkdir -p $(dir $(1)) && touch $(1)
+	mkdir -p $(dir $(1)) && touch $(1);
 endef
 
 define string-to-suffix
@@ -149,6 +150,21 @@ define fetch-binary-and-extract
 	tar xaf "$(1)";
 endef
 
+# $(1): component prefix
+# $(2): build prefix
+define touch-install-files
+$(eval TMP := $($(1)$(call target-to-prefix,$($(2)_PROVIDES))_INSTALL_TARGET_FILE))
+ifneq (,$(TMP))
+	TEMP_FILE=$$$$(tempfile); rm $$$$TEMP_FILE; if test -e $(TMP); then mv $(TMP) $$$$TEMP_FILE; fi; \
+	rm -f $($(1)_INSTALL_TARGET_FILE)*; \
+	if test -e $$$$TEMP_FILE; then mv $$$$TEMP_FILE $(TMP); else $(call touch,$(TMP)) fi;
+else
+	rm -f $($(1)_INSTALL_TARGET_FILE)*;
+endif
+$(call touch,$($(1)_INSTALL_TARGET_FILE))
+$(call touch,$($(2)_INSTALL_TARGET_FILE))
+endef
+
 # Functions to build components
 # =============================
 
@@ -163,7 +179,7 @@ $(call component-base,$(1),$(2),$(6))
 $(call component-clone,$(1),$(3),$(4),$(5))
 endef
 
-# component-clone creates the minimal set of variables and targets required to
+# component-base creates the minimal set of variables and targets required to
 # obtain a working component.
 define component-base
 
@@ -175,6 +191,9 @@ $(eval COMPONENTS += $(1))
 
 # Name for targets related to this component
 $(eval $(1)_TARGET_NAME := $(2))
+
+# Default clone path, used to get the commit/branch for the component
+$(eval $(1)_CLONE_PATH := orchestra)
 
 $(eval $(1)_INSTALL_TARGET_FILE := $(call install-target-file,$($(1)_TARGET_NAME)))
 
@@ -210,7 +229,7 @@ define component-clone
 #
 
 # Clone path, relative to the origin
-$(eval $(1)_CLONE_PATH := $(2))
+$(eval $(if $(do-clone-$($(1)_TARGET_NAME)),,$(1)_CLONE_PATH := $(2)))
 
 # Check out path, relative to $(SOURCE_PATH)
 $(eval $(1)_SOURCE_PATH := $(SOURCE_PATH)/$(3))
@@ -229,6 +248,14 @@ clone-$($(1)_TARGET_NAME): $($(1)_SOURCE_TARGET_FILE)
 
 endef
 
+# $(1): build prefix
+# $(2): build target
+# $(3): relative build path
+# $(4): file to depend upon for configure
+# $(5): configure-time dependencies
+# $(6): component prefix
+# $(7): build suffix of the another build of the same component provided by this build
+# $(8): install-time dependencies
 define component-build
 
 #
@@ -253,9 +280,16 @@ $(eval $(1)_INSTALL_TARGET_FILE := $(call install-target-file,$($(1)_TARGET_NAME
 # List of targets the configure stage should depend on
 $(eval $(1)_CONFIGURE_DEPS := $(5))
 
+# The name of another build that has to be considered installed when this build
+# is installed
+$(eval $(1)_PROVIDES := $(7))
+
+# Install-time dependencies
+$(eval $(1)_INSTALL_DEPS := $(8))
+
 # configure- target
 .PHONY: configure-$($(1)_TARGET_NAME)
-configure-$($(1)_TARGET_NAME) $($(1)_CONFIGURE_TARGET_FILE): $($(6)_SOURCE_TARGET_FILE) $($(1)_CONFIGURE_DEPS)
+configure-$($(1)_TARGET_NAME) $($(1)_CONFIGURE_TARGET_FILE): $($(6)_SOURCE_TARGET_FILE) $($(1)_CONFIGURE_DEPS) $($(1)_INSTALL_DEPS)
 	mkdir -p $(BUILD_PATH)
 $(call do-configure-$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH),$($(1)_BUILD_PATH))
 $(call touch,$($(1)_CONFIGURE_TARGET_FILE))
@@ -289,9 +323,7 @@ $(if $(do-install-$($(1)_TARGET_NAME)),
 $(call do-install-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH)),
 $(call make,$($(1)_BUILD_PATH),)
 $(call make,$($(1)_BUILD_PATH),install))
-	rm -f $($(6)_INSTALL_TARGET_FILE)*
-$(call touch,$($(6)_INSTALL_TARGET_FILE))
-$(call touch,$($(1)_INSTALL_TARGET_FILE))
+$(call touch-install-files,$(6),$(1))
 
 # clean- target
 .PHONY: clean-$($(1)_TARGET_NAME)
@@ -299,8 +331,9 @@ clean-$($(1)_TARGET_NAME):
 	rm -rf $($(1)_BUILD_PATH)
 
 # Add the clean- target for the current build to the component clean- target
+ifneq ($($(6)_TARGET_NAME),$($(1)_TARGET_NAME))
 clean-$($(6)_TARGET_NAME): clean-$($(1)_TARGET_NAME)
-
+endif
 
 .PHONY: $($(1)_TARGET_NAME)
 $($(1)_TARGET_NAME): $($(1)_INSTALL_TARGET_FILE)
@@ -321,84 +354,113 @@ $(call git-add-binary-archive,$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH))
 # 3. Check for the commit file
 # 4. Check for the branch file
 ifeq ($($(6)_TARGET_NAME),$(filter $($(6)_TARGET_NAME),$(BINARY_COMPONENTS)))
-fetch-$($(1)_TARGET_NAME) $($(1)_INSTALL_TARGET_FILE): $(BINARY_ARCHIVE_PATH)/README.md
+fetch-$($(1)_TARGET_NAME) $($(1)_INSTALL_TARGET_FILE): $(BINARY_ARCHIVE_PATH)/README.md $($(1)_INSTALL_DEPS)
 else
-fetch-$($(1)_TARGET_NAME): $(BINARY_ARCHIVE_PATH)/README.md
+fetch-$($(1)_TARGET_NAME): $(BINARY_ARCHIVE_PATH)/README.md $($(1)_INSTALL_DEPS)
 endif
 	TEMP=$$$$(tempfile) || exit; \
 	for REMOTE in $(REMOTES_BASE_URL); do \
         trap "rm -f -- '$$$$TEMP'" EXIT; \
-	    $(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),git ls-remote -h --refs $$$${REMOTE}$($(6)_TARGET_NAME) > "$$$$TEMP") || true; \
+	    $(call strip-call,retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),git ls-remote -h --refs $$$${REMOTE}$($(6)_CLONE_PATH) > "$$$$TEMP") || true; \
 	    if test -s "$$$$TEMP"; then \
 		    for BRANCH in $(BRANCHES); do \
 	            RES=$$$$( (grep 'refs/heads/'"$$$$BRANCH"'$$$$' "$$$$TEMP" || true) | (grep -o '^[a-z0-9]*' || true) ); \
 	            if test -n "$$$$RES"; then \
 	                rm -f -- "$$$$TEMP"; \
 	                trap - EXIT; \
-	                HASH_FILE="$(call binary-archive-directory,$($(1)_TARGET_NAME))/$$$$RES.tar.gz"; \
-	                BRANCH_FILE="$(call binary-archive-directory,$($(1)_TARGET_NAME))/$$$$BRANCH.tar.gz"; \
+	                HASH_FILE="$(call strip-call,binary-archive-directory,$($(1)_TARGET_NAME))/$$$$RES.tar.gz"; \
+	                BRANCH_FILE="$(call strip-call,binary-archive-directory,$($(1)_TARGET_NAME))/$$$$BRANCH.tar.gz"; \
 	                if test -e "$$$$HASH_FILE"; then \
-	                    $(call fetch-binary-and-extract,$$$$HASH_FILE) \
+	                    $(call strip-call,fetch-binary-and-extract,$$$$HASH_FILE) \
 	                elif test -e "$$$$BRANCH_FILE"; then \
-	                    $(call fetch-binary-and-extract,$$$$BRANCH_FILE) \
+	                    $(call strip-call,fetch-binary-and-extract,$$$$BRANCH_FILE) \
 	                else \
 	                    echo "Couldn't find the archive for branch $$$$BRANCH"; \
 	                    exit 1; \
 	                fi; \
                     exit 0; \
-$(call touch,$($(6)_INSTALL_TARGET_FILE)) \
-$(call touch,$($(1)_INSTALL_TARGET_FILE)) \
+$(call strip-call,touch,$($(6)_INSTALL_TARGET_FILE)) \
+$(call strip-call,touch,$($(1)_INSTALL_TARGET_FILE)) \
 	            fi; \
 	        done; \
 	    fi; \
 	done; \
 	exit 1;
+$(call touch-install-files,$(6),$(1))
 endef
 
-# 1: target name
-# 2: File to depend on for check out, relative to $(PREFIX)_SOURCE_PATH
-# 3: default variant
+# $(1): target name
+# $(2): file to depend on for check out, relative to $(PREFIX)_SOURCE_PATH
+# $(3): default variant
 define simple-component-source
 $(call component-source,$(call target-to-prefix,$(1)),$(1),$(1),$(1),$(2),$(1)$(3))
+endef
+
+# $(1): source target name
+# $(2): build name suffix
+# $(3): file to depend on for configure, relative to $(PREFIX)_BUILD_PATH
+# $(4): list of targets the configure stage should depend on at configure-time
+# $(5): build suffix of the another build of the same component provided by this build
+# $(6): install-time dependencies
+define simple-component-build
+$(call strip-call,component-build, \
+  $(call strip-call,target-to-prefix,$(1)$(2)), \
+  $(1)$(2), \
+  $(1)$(2), \
+  $(3), \
+  $(4), \
+  $(call strip-call,target-to-prefix,$(1)), \
+  $(5), \
+  $(6))
 endef
 
 # CMake-based components
 # ----------------------
 
-# 1: source target name
-# 2: build name suffix
-# 3: File to depend on for configure, relative to $(PREFIX)_BUILD_PATH
-# 4: List of targets the configure stage should depend on
-define simple-component-build
-$(call component-build,$(call target-to-prefix,$(1)$(2)),$(1)$(2),$(1)$(2),$(3),$(4),$(call target-to-prefix,$(1)))
-endef
-
-# 1: target name
-# 2: default build
+# $(1): target name
+# $(2): default build
 define cmake-component-source
 $(call simple-component-source,$(1),CMakeLists.txt,$(2))
 endef
 
-# 1: target name
-# 2: build name
-# 3: List of targets the configure stage should depend on
+# $(1): target name
+# $(2): build name
+# $(3): configure-time dependencies
+# $(4): provided build
+# $(5): install-time dependencies
 define cmake-component-build
-$(call simple-component-build,$(1),$(2),CMakeCache.txt,$(3))
+$(call strip-call,simple-component-build, \
+  $(1), \
+  $(2), \
+  CMakeCache.txt, \
+  $(3), \
+  $(4), \
+  $(5))
 endef
 
-# 1: target name
-# 2: List of targets the configure stage should depend on
+# $(1): target name
+# $(2): configure-time dependencies
+# $(3): provided build
+# $(4): install-time dependencies
 define simple-cmake-component
 $(call cmake-component-source,$(1),)
-$(call cmake-component-build,$(1),,$(2))
+$(call strip-call,cmake-component-build, \
+  $(1), \
+  , \
+  $(2), \
+  $(3), \
+  $(4))
 endef
 
-# 1: target name
-# 2: List of targets the configure stage should depend on
-# 3, 4, 5, 6, 7: name of build targets
+# $(1): target name
+# $(2): default build
+# $(3): configure-time dependencies
+# $(4): provided build
+# $(5): install-time dependencies
+# $(6), $(7), $(8), $(9), $(10): name of build targets
 define multi-build-cmake-component
-$(call cmake-component-source,$(1),-$(3))
-$(foreach i,3 4 5 6 7,$(if $($(i)),$(call cmake-component-build,$(1),-$($(i)),$(2))))
+$(call cmake-component-source,$(1),-$(2))
+$(foreach i,6 7 8 9 10,$(if $($(i)),$(call cmake-component-build,$(1),-$($(i)),$(3),$(4),$(5))))
 endef
 
 # autotools-based components
@@ -410,18 +472,33 @@ define autotools-component-source
 $(call simple-component-source,$(1),configure,$(2))
 endef
 
-# 1: target name
-# 2: build name
-# 3: List of targets the configure stage should depend on
+# $(1): target name
+# $(2): build name
+# $(3): configure-time dependencies
+# $(4): provided build
+# $(5): install-time dependencies
 define autotools-component-build
-$(call simple-component-build,$(1),$(2),config.log,$(3))
+$(call strip-call,simple-component-build, \
+  $(1), \
+  $(2), \
+  config.log, \
+  $(3), \
+  $(4), \
+  $(5))
 endef
 
-# 1: target name
-# 2: List of targets the configure stage should depend on
+# $(1): target name
+# $(2): configure-time dependencies
+# $(3): provided build
+# $(4): install-time dependencies
 define simple-autotools-component
 $(call autotools-component-source,$(1),)
-$(call autotools-component-build,$(1),,$(2))
+$(call strip-call,autotools-component-build, \
+  $(1), \
+  , \
+  $(2), \
+  $(3), \
+  $(4))
 endef
 
 # Binaries
