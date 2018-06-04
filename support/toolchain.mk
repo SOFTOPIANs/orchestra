@@ -345,10 +345,19 @@ $(eval $(call autotools-component-build,$(TOOLCHAIN_TARGET_PREFIX)gcc,-stage2,$(
 # toolchain
 # =========
 
-.PHONY: toolchain-$(TOOLCHAIN)
-toolchain-$(TOOLCHAIN): $(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
+.PHONY: toolchain/$(TOOLCHAIN) configure-toolchain/$(TOOLCHAIN) build-toolchain/$(TOOLCHAIN) install-toolchain/$(TOOLCHAIN) test-toolchain/$(TOOLCHAIN)
+toolchain/$(TOOLCHAIN): $(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
+configure-toolchain/$(TOOLCHAIN): configure-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
+build-toolchain/$(TOOLCHAIN): build-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
+install-toolchain/$(TOOLCHAIN): install-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
+test-toolchain/$(TOOLCHAIN): test-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
 
-toolchain: toolchain-$(TOOLCHAIN)
+.PHONY: toolchain configure-toolchain build-toolchain install-toolchain test-toolchain
+toolchain: toolchain/$(TOOLCHAIN)
+configure-toolchain: configure-toolchain/$(TOOLCHAIN)
+build-toolchain: build-toolchain/$(TOOLCHAIN)
+install-toolchain: install-toolchain/$(TOOLCHAIN)
+test-toolchain: test-toolchain/$(TOOLCHAIN)
 
 $(eval TOOLCHAIN_INSTALL_TARGET_FILE += $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE2_INSTALL_TARGET_FILE))
 
