@@ -267,6 +267,7 @@ clean:
 	rm -rf $(BUILD_PATH)/
 	rm -rf $(INSTALL_PATH)/
 	rm -rf $(SOURCE_ARCHIVE_PATH)/
+	rm -rf $(INSTALLED_TARGETS_PATH)/
 
 .PHONY: help
 help:

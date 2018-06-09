@@ -21,6 +21,7 @@ $(call option,BINARY_ARCHIVE_PATH,$(PWD)/binary-archives,Path for storing and fe
 $(call option,SOURCE_ARCHIVE_PATH,$(PWD)/source-archives,Path for caching source archives)
 $(call option,PATCH_PATH,$(PWD)/patches,Path containing patches for components)
 $(call option,TEMP_INSTALL_PATH,$(PWD)/temp-install,Path for installing components before creating a binary archive)
+$(call option,INSTALLED_TARGETS_PATH,$(PWD)/installed-targets,Path for the file to indicate that a certain build/component has been installed)
 $(call option,REMOTES,$(shell ./get-remote),Space-separated list of remotes of the current repository to try, one after the other, while cloning sources)
 $(call option,REMOTES_BASE_URL,$(foreach REMOTE,$(REMOTES),$(dir $(shell git config --get remote.$(REMOTE).url))),Space-separated list of repository base URLs to try, one after the other, while cloning sources)
 $(call option,BRANCHES,develop master,Space-separated list of git refs such as branches to try to checkout after the sources have been cloned)
@@ -130,7 +131,7 @@ endef
 #$(1)-HAS-BEEN-INSTALLED
 # $(1): target name
 define install-target-file
-installed-targets/$(1)
+$(INSTALLED_TARGETS_PATH)/$(1)
 endef
 
 define component-source
