@@ -337,14 +337,25 @@ endef
 # $(3): extra flags variable name
 define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl
 $(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl-common,$(1),$(2))
+	source $(PWD)/environment; \
 	cd "$(2)" && CC="$(NEW_GCC)" \
-	LIBCC="$(MUSL_LIBCC)" \
 	CFLAGS="$(MUSL_CFLAGS) $($(3))" \
 	"$(2)/configure" \
 	        --target=$(TRIPLE) \
 	        --prefix="$(INSTALL_PATH)/usr/$(TRIPLE)/usr" \
 	        --syslibdir="$(INSTALL_PATH)/usr/$(TRIPLE)/lib" \
 	        --disable-gcc-wrapper
+endef
+
+define do-build-$(TOOLCHAIN_TARGET_PREFIX)musl
+	source $(PWD)/environment; \
+	make -C $(1)
+endef
+
+define do-install-$(TOOLCHAIN_TARGET_PREFIX)musl
+	source $(PWD)/environment; \
+	make -C $(1); \
+	make -C $(1) install
 endef
 
 # $(1): build suffix
@@ -355,12 +366,20 @@ define do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl$(1)
 $$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)musl,$$(1),$$(2),$(2))
 endef
 
+define do-build-$(TOOLCHAIN_TARGET_PREFIX)musl$(1)
+$$(call do-build-$(TOOLCHAIN_TARGET_PREFIX)musl,$$(1),$$(2),$(2))
+endef
+
+define do-install-$(TOOLCHAIN_TARGET_PREFIX)musl$(1)
+$$(call do-install-$(TOOLCHAIN_TARGET_PREFIX)musl,$$(1),$$(2),$(2))
+endef
+
 $$(eval \
   $$(call strip-call,simple-component-build, \
     $(TOOLCHAIN_TARGET_PREFIX)musl, \
     $(1), \
     config.log, \
-    $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE1_INSTALL_TARGET_FILE), \
+    $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE1_INSTALL_TARGET_FILE) environment, \
     -headers))
 
 $(TOOLCHAIN_VAR_PREFIX)LIBC$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE := $$($(TOOLCHAIN_VAR_PREFIX)MUSL$(call target-to-prefix,$(1))_INSTALL_TARGET_FILE)
@@ -382,13 +401,13 @@ $(eval \
     -headers, \
     config.log))
 
+$(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)MUSL_HEADERS_INSTALL_TARGET_FILE)
+$(TOOLCHAIN_TARGET_PREFIX)libc-headers: $(TOOLCHAIN_TARGET_PREFIX)musl-headers
+
 # Actual builds
 $(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(eval $(call $(TOOLCHAIN_TARGET_PREFIX)musl-template,-$(LIBC_CONFIG),LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS)))
 
-$(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)MUSL_HEADERS_INSTALL_TARGET_FILE)
 $(TOOLCHAIN_VAR_PREFIX)LIBC_INSTALL_TARGET_FILE := $($(TOOLCHAIN_VAR_PREFIX)MUSL_INSTALL_TARGET_FILE)
-
-$(TOOLCHAIN_TARGET_PREFIX)libc-headers: $(TOOLCHAIN_TARGET_PREFIX)musl-headers
 $(TOOLCHAIN_TARGET_PREFIX)libc: $(TOOLCHAIN_TARGET_PREFIX)musl
 clean-$(TOOLCHAIN_TARGET_PREFIX)libc: clean-$(TOOLCHAIN_TARGET_PREFIX)musl
 configure-$(TOOLCHAIN_TARGET_PREFIX)libc: configure-$(TOOLCHAIN_TARGET_PREFIX)musl
