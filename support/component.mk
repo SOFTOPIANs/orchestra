@@ -136,7 +136,7 @@ endef
 define download-tar
 	mkdir -p $(1)
 	mkdir -p $(SOURCE_ARCHIVE_PATH)
-	test -e "$(SOURCE_ARCHIVE_PATH)/$(3)" || curl -L "$(2)/$(3)" > "$(SOURCE_ARCHIVE_PATH)/$(3)"
+	test -e "$(SOURCE_ARCHIVE_PATH)/$(3)" || $(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),curl -L "$(2)/$(3)" > "$(SOURCE_ARCHIVE_PATH)/$(3)")
 	cd "$(1)" && tar xaf "$(SOURCE_ARCHIVE_PATH)/$(3)" --strip-components=1
 endef
 
