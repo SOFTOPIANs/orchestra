@@ -1,0 +1,13 @@
+#!/bin/bash
+
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+ORCHESTRA_ROOT=$(readlink -f $SCRIPT_PATH/..)
+MAKE2GRAPH="$SCRIPT_PATH/make2graph"
+
+if [ ! -e "$MAKE2GRAPH" ]; then
+   echo "Can't"' find make2graph, have you run `make support/make2graph`?'
+   exit 1
+fi
+
+make -nd $* | "$SCRIPT_PATH/make2graph" | sed "s|$ORCHESTRA_ROOT/||" | dot -Tsvg

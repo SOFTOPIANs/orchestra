@@ -12,8 +12,7 @@ SHELL := /bin/bash -e
 
 # TODO:
 #
-# * Binary toolchains
-# * CI
+# * Time, get peak memory consumption and size targets
 
 # Make sure all is the default build target, we will define it at the end
 .PHONY: help
@@ -23,13 +22,39 @@ help:
 # ============================
 
 include support/option.mk
+
+define strip-call
+$(call $(strip $(1)),$(strip $(2)),$(strip $(3)),$(strip $(4)),$(strip $(5)),$(strip $(6)),$(strip $(7)),$(strip $(8)),$(strip $(9)),$(strip $(10)),$(strip $(11)),$(strip $(12)),$(strip $(13)),$(strip $(14)),$(strip $(15)))
+endef
+
+$(call strip-call,option, \
+  BINARY_COMPONENTS, \
+  boost \
+    llvm \
+    toolchain/arm/binutils \
+    toolchain/arm/linux-headers \
+    toolchain/arm/uclibc \
+    toolchain/arm/gcc \
+    toolchain/mips/binutils \
+    toolchain/mips/linux-headers \
+    toolchain/mips/musl \
+    toolchain/mips/gcc \
+    toolchain/i386/binutils \
+    toolchain/i386/linux-headers \
+    toolchain/i386/musl \
+    toolchain/i386/gcc \
+    toolchain/x86-64/binutils \
+    toolchain/x86-64/linux-headers \
+    toolchain/x86-64/musl \
+    toolchain/x86-64/gcc, \
+  List of components for which binary archives should be used)
+
 include support/component.mk
 
 # Global configuration
 # ====================
 
 $(eval BIN_PATH := bin)
-
 
 # LLVM
 # ====
@@ -67,7 +92,16 @@ $(CLANG_SOURCE_TARGET_FILE):
 	$(call clone,clang,$(CLANG_SOURCE_PATH))
 	$(call touch,$(CLANG_SOURCE_TARGET_FILE))
 
-$(eval $(call multi-build-cmake-component,llvm,$(CLANG_SOURCE_TARGET_FILE),release,debug))
+$(eval \
+  $(call strip-call, \
+    multi-build-cmake-component, \
+    llvm, \
+    release, \
+    $(CLANG_SOURCE_TARGET_FILE), \
+    , \
+    , \
+    release, \
+    debug))
 
 # QEMU
 # ====
@@ -92,7 +126,10 @@ define do-configure-qemu
 	    --python=$(shell which python2)
 endef
 
-$(eval $(call simple-autotools-component,qemu,$(LLVM_INSTALL_TARGET_FILE)))
+$(eval \
+  $(call strip-call,simple-autotools-component, \
+    qemu, \
+    $(LLVM_INSTALL_TARGET_FILE)))
 
 # Toolchains
 # ==========
@@ -101,11 +138,11 @@ $(call option,COREUTILS_VERSION,8.29,Version of coreutils to build)
 
 $(call option,LIBC_CONFIGS,default gc-o0 gc-o1 gc-o2 gc-o3,Name of the configurations of the libc to compile)
 $(call option,LIBC_DEFAULT_CONFIG,default,Name of the default configuration to use for the libc)
-$(eval LIBC_CONFIG_DEFAULT_FLAGS ?= -g)
-$(eval LIBC_CONFIG_GC_O0_FLAGS ?= -g -Wl$$(COMMA)--gc-sections -ffunction-sections -O0)
-$(eval LIBC_CONFIG_GC_O1_FLAGS ?= -g -Wl$$(COMMA)--gc-sections -ffunction-sections -O1)
-$(eval LIBC_CONFIG_GC_O2_FLAGS ?= -g -Wl$$(COMMA)--gc-sections -ffunction-sections -O2)
-$(eval LIBC_CONFIG_GC_O3_FLAGS ?= -g -Wl$$(COMMA)--gc-sections -ffunction-sections -O3)
+$(eval LIBC_CONFIG_DEFAULT_FLAGS ?= -ggdb3)
+$(eval LIBC_CONFIG_GC_O0_FLAGS ?= -ggdb3 -Wl$$(COMMA)--gc-sections -ffunction-sections -O0)
+$(eval LIBC_CONFIG_GC_O1_FLAGS ?= -ggdb3 -Wl$$(COMMA)--gc-sections -ffunction-sections -O1)
+$(eval LIBC_CONFIG_GC_O2_FLAGS ?= -ggdb3 -Wl$$(COMMA)--gc-sections -ffunction-sections -O2)
+$(eval LIBC_CONFIG_GC_O3_FLAGS ?= -ggdb3 -Wl$$(COMMA)--gc-sections -ffunction-sections -O3)
 $(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(call option,LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS,$(LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS),Compile flags for $(LIBC_CONFIG)))
 
 # $(1): target prefix for toolchain
@@ -124,7 +161,6 @@ $(eval GCC_VERSION := $($(TMP)_GCC_VERSION))
 $(eval EXTRA_GCC_CONFIGURE_OPTIONS := $($(TMP)_EXTRA_GCC_CONFIGURE_OPTIONS))
 $(eval MUSL_CFLAGS := $($(TMP)_MUSL_CFLAGS))
 $(eval MUSL_LIBCC := $($(TMP)_MUSL_LIBCC))
-$(eval DEPS := $($(TMP)_DEPS))
 $(eval DYNAMIC := $($(TMP)_DYNAMIC))
 )
 endef
@@ -136,7 +172,6 @@ $(call option,X86_64_MUSL_VERSION,1.1.12)
 $(call option,X86_64_LINUX_VERSION,4.5.2)
 $(call option,X86_64_GCC_VERSION,4.9.3)
 $(call option,X86_64_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --enable-targets=all --with-multilib-list=m64 --without-isl)
-$(call option,X86_64_DEPS,$(COMPILER_RT_INSTALL_TARGET_FILE))
 $(call option,X86_64_DYNAMIC,0)
 $(call prepare-for-toolchain,x86-64)
 include support/toolchain.mk
@@ -197,7 +232,9 @@ $(call download-tar,$(2),https://sourceforge.net/projects/boost/files/boost/1.63
 endef
 
 $(eval $(call component-base,BOOST,boost,boost))
-$(eval $(call simple-component-build,boost,,,))
+$(eval \
+  $(call strip-call,simple-component-build, \
+    boost))
 
 # environment
 # ===========
@@ -250,11 +287,16 @@ define do-test-revamb
 	ctest -j$(JOBS)
 endef
 
-$(eval $(call simple-cmake-component,revamb,$(LLVM_INSTALL_TARGET_FILE) $(QEMU_INSTALL_TARGET_FILE) $(BOOST_INSTALL_TARGET_FILE) environment | $(TOOLCHAIN_INSTALL_TARGET_FILE)))
-
-# Binaries
-binary-archives:
-	$(call clone,binary-archives,$(BINARY_ARCHIVE_PATH))
+$(eval \
+  $(call strip-call,simple-cmake-component, \
+    revamb, \
+    , \
+    , \
+    $(LLVM_INSTALL_TARGET_FILE) \
+      $(QEMU_INSTALL_TARGET_FILE) \
+      $(BOOST_INSTALL_TARGET_FILE) \
+      environment \
+      | $(TOOLCHAIN_INSTALL_TARGET_FILE)))
 
 # Default targets
 # ===============
@@ -267,6 +309,7 @@ clean:
 	rm -rf $(BUILD_PATH)/
 	rm -rf $(INSTALL_PATH)/
 	rm -rf $(SOURCE_ARCHIVE_PATH)/
+	rm -rf $(INSTALLED_TARGETS_PATH)/
 
 .PHONY: help
 help:
@@ -301,3 +344,36 @@ create-binary-archive: $(foreach COMPONENT,$(COMPONENTS),create-binary-archive-$
 
 .PHONY: create-binary-archive-all
 create-binary-archive-all: $(foreach COMPONENT,$(COMPONENTS),$(foreach BUILD,$($(COMPONENT)_BUILDS),create-binary-archive-$($(BUILD)_TARGET_NAME)))
+
+$(call option,PUSH_BINARY_ARCHIVE_NETRC,,Content of the .netrc file for credentials in the follwoing form: machine HOST login USERNAME password PASSWORD. It will not end up in the logs or in command lines but temporarily on disk.)
+$(call option,PUSH_BINARY_ARCHIVE_REMOTE,,Git URL to use to push binary archives. It will not end up in the logs but on the git command line.)
+$(call option,PUSH_BINARY_ARCHIVE_EMAIL,orchestra@localhost,E-mail to use for commits for binary archives)
+$(call option,PUSH_BINARY_ARCHIVE_NAME,Orchestra,Name to use for commits for binary archives)
+
+# Warning: PUSH_BINARY_ARCHIVE_NETRC can contain a password, we have to make
+# sure the URL doesn't end up in the log or in any command line. Environment
+# variables should be relatively safe since, unlike the command line, they are
+# not world readable.
+
+.PHONY: commit-binary-archive
+commit-binary-archive: $(foreach COMPONENT,$(COMPONENTS),$(foreach BUILD,$($(COMPONENT)_BUILDS),git-add-binary-archive-$($(BUILD)_TARGET_NAME)))
+	git lfs >& /dev/null
+	git -C '$(BINARY_ARCHIVE_PATH)' config user.email "$(PUSH_BINARY_ARCHIVE_EMAIL)"
+	git -C '$(BINARY_ARCHIVE_PATH)' config user.name "$(PUSH_BINARY_ARCHIVE_NAME)"
+	git -C '$(BINARY_ARCHIVE_PATH)' commit -m'Automatic binary archives'
+
+	rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc
+	touch $(BINARY_ARCHIVE_PATH)/.netrc
+	chmod 600 $(BINARY_ARCHIVE_PATH)/.netrc
+	CONTENT="$$PUSH_BINARY_ARCHIVE_NETRC" support/env-to-file.py '$(BINARY_ARCHIVE_PATH)/.netrc'
+	HOME='$(BINARY_ARCHIVE_PATH)' git -C '$(BINARY_ARCHIVE_PATH)' push $$PUSH_BINARY_ARCHIVE_REMOTE $$(git -C '$(BINARY_ARCHIVE_PATH)' name-rev --name-only HEAD) || (rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc; exit 1)
+	rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc
+
+# make2graph
+# ==========
+
+$(call option,CC,cc,Host compiler)
+
+support/make2graph: support/make2graph.c
+	$(CC) $^ -o $@
+
