@@ -46,7 +46,11 @@ $(call strip-call,option, \
     toolchain/x86-64/binutils \
     toolchain/x86-64/linux-headers \
     toolchain/x86-64/musl \
-    toolchain/x86-64/gcc, \
+    toolchain/x86-64/gcc \
+    toolchain/s390x/binutils \
+    toolchain/s390x/linux-headers \
+    toolchain/s390x/musl \
+    toolchain/s390x/gcc, \
   List of components for which binary archives should be used)
 
 include support/component.mk
