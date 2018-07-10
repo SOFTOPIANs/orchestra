@@ -164,7 +164,7 @@ $(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc,$(1),$(2),--enable-languages=c
 endef
 
 define do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc-stage2
-$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc,$(1),$(2),--enable-languages=c,c++)
+$(call do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc,$(1),$(2),--enable-languages=c$(COMMA)c++)
 endef
 
 $(eval \
