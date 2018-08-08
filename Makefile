@@ -289,7 +289,7 @@ define print-prepend-path
 
 endef
 
-environment:
+environment: Makefile
 	cat support/environment-header > environment
 	echo >> environment
 	echo 'INSTALL_PATH="$(INSTALL_PATH)"' >> environment

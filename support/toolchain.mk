@@ -422,7 +422,8 @@ $(eval \
   $(call strip-call,autotools-component-build, \
     $(TOOLCHAIN_TARGET_PREFIX)gcc, \
     -stage1, \
-    $($(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE)))
+    $($(TOOLCHAIN_VAR_PREFIX)LIBC_HEADERS_INSTALL_TARGET_FILE) \
+      $($(TOOLCHAIN_VAR_PREFIX)BINUTILS_INSTALL_TARGET_FILE)))
 
 $(eval \
   $(call strip-call,autotools-component-build, \
