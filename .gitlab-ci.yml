@@ -11,4 +11,5 @@ stages:
 
 create-binaries:
   stage: build
-  script: git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA" && make create-binary-archive-all commit-binary-archive BINARY_COMPONENTS=
+  # script: git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA" && make test-revamb create-binary-archive-all commit-binary-archive BINARY_COMPONENTS=
+  script: git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA" && make create-binary-archive-all commit-binary-archive
