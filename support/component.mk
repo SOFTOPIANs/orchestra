@@ -155,7 +155,7 @@ endef
 define touch-install-files
 $(eval TMP := $($(1)$(call target-to-prefix,$($(2)_PROVIDES))_INSTALL_TARGET_FILE))
 ifneq (,$(TMP))
-	TEMP_FILE=$$$$(tempfile); rm $$$$TEMP_FILE; if test -e $(TMP); then mv $(TMP) $$$$TEMP_FILE; fi; \
+	TEMP_FILE=$$$$(mktemp); rm $$$$TEMP_FILE; if test -e $(TMP); then mv $(TMP) $$$$TEMP_FILE; fi; \
 	rm -f $($(1)_INSTALL_TARGET_FILE)*; \
 	if test -e $$$$TEMP_FILE; then mv $$$$TEMP_FILE $(TMP); else $(call touch,$(TMP)) fi;
 else
@@ -358,7 +358,7 @@ fetch-$($(1)_TARGET_NAME) $($(1)_INSTALL_TARGET_FILE): $(BINARY_ARCHIVE_PATH)/RE
 else
 fetch-$($(1)_TARGET_NAME): $(BINARY_ARCHIVE_PATH)/README.md $($(1)_INSTALL_DEPS)
 endif
-	TEMP=$$$$(tempfile) || exit; \
+	TEMP=$$$$(mktemp) || exit; \
 	for REMOTE in $(REMOTES_BASE_URL); do \
         trap "rm -f -- '$$$$TEMP'" EXIT; \
 	    $(call strip-call,retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),git ls-remote -h --refs $$$${REMOTE}$($(6)_CLONE_PATH) > "$$$$TEMP") || true; \
