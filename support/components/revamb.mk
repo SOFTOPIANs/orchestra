@@ -8,8 +8,8 @@ define do-configure-revamb
 	source $(PWD)/environment; \
 	cd "$(2)"; \
 	cmake "$(1)" \
-	      -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
-	      -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
+	      -DCMAKE_CXX_LINK_FLAGS="-static-libgcc -static-libstdc++" \
+	      -DCMAKE_C_LINK_FLAGS="-static-libgcc" \
 	      -DCMAKE_INSTALL_PREFIX="$(INSTALL_PATH)" \
 	      -DCMAKE_BUILD_TYPE="Debug" \
 	      -DQEMU_INSTALL_PATH="$(INSTALL_PATH)" \
