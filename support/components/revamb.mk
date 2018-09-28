@@ -27,7 +27,7 @@ endef
 define do-test-revamb
 	source $(PWD)/environment; \
 	cd "$(1)"; \
-	ctest -j$(JOBS)
+	ctest -j$(JOBS) || (cat Testing/Temporary/LastTest.log; false)
 endef
 
 $(eval \
