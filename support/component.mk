@@ -24,7 +24,7 @@ $(call option,TEMP_INSTALL_PATH,$(PWD)/temp-install,Path for installing componen
 $(call option,INSTALLED_TARGETS_PATH,$(PWD)/installed-targets,Path for the file to indicate that a certain build/component has been installed)
 $(call option,REMOTES,$(shell ./get-remote),Space-separated list of remotes of the current repository to try, one after the other, while cloning sources)
 $(call option,REMOTES_BASE_URL,$(foreach REMOTE,$(REMOTES),$(dir $(shell git config --get remote.$(REMOTE).url))),Space-separated list of repository base URLs to try, one after the other, while cloning sources)
-$(call option,BRANCHES,$(shell git name-rev --name-only HEAD) develop master,Space-separated list of git refs such as branches to try to checkout after the sources have been cloned)
+$(call option,BRANCHES,$(shell git name-rev --name-only HEAD | grep -v master) develop master,Space-separated list of git refs such as branches to try to checkout after the sources have been cloned)
 $(call option,FORCE_BINARIES,no,Force building all the request binary packages even if they are already available)
 $(call option,BUILD_MISSING_BINARIES,no,If a required binary archive is not available build it from source)
 $(call option,CLONE_ATTEMPTS,3,Attempts to clone a remote before giving up)
