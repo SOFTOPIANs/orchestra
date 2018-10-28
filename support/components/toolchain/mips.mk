@@ -1,0 +1,10 @@
+$(call option,MIPS_TRIPLE,mips-unknown-linux-musl)
+$(call option,MIPS_LINUX_ARCH_NAME,mips)
+$(call option,MIPS_BINUTILS_VERSION,2.25.1)
+$(call option,MIPS_MUSL_VERSION,1.1.12)
+$(call option,MIPS_LINUX_VERSION,4.5.2)
+$(call option,MIPS_GCC_VERSION,5.3.0)
+$(call option,MIPS_EXTRA_GCC_CONFIGURE_OPTIONS,--with-abi= --without-isl)
+$(call option,MIPS_DYNAMIC,0)
+$(call prepare-for-toolchain,mips)
+include support/toolchain.mk

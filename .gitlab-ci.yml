@@ -2,7 +2,7 @@ image: ubuntu:16.04
 
 before_script:
   - apt-get update
-  - DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes cmake build-essential python git sed gawk pkg-config zlib1g-dev libglib2.0-dev curl texinfo libgmp-dev libmpc-dev libmpfr-dev ca-certificates aufs-tools
+  - DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes cmake build-essential python git sed gawk pkg-config zlib1g-dev libglib2.0-dev curl texinfo libgmp-dev libmpc-dev libmpfr-dev ca-certificates aufs-tools python-pygraphviz python-pyelftools valgrind
   - curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
   - DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes git-lfs
 
@@ -11,4 +11,5 @@ stages:
 
 create-binaries:
   stage: build
-  script: git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA" && make create-binary-archive-all commit-binary-archive BINARY_COMPONENTS=
+  # script: git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA" && make test-revamb create-binary-archive-all commit-binary-archive BINARY_COMPONENTS=
+  script: git checkout -B "$CI_COMMIT_REF_NAME" "$CI_COMMIT_SHA" && make create-binary-archive-all commit-binary-archive

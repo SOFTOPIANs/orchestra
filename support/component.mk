@@ -24,10 +24,12 @@ $(call option,TEMP_INSTALL_PATH,$(PWD)/temp-install,Path for installing componen
 $(call option,INSTALLED_TARGETS_PATH,$(PWD)/installed-targets,Path for the file to indicate that a certain build/component has been installed)
 $(call option,REMOTES,$(shell ./get-remote),Space-separated list of remotes of the current repository to try, one after the other, while cloning sources)
 $(call option,REMOTES_BASE_URL,$(foreach REMOTE,$(REMOTES),$(dir $(shell git config --get remote.$(REMOTE).url))),Space-separated list of repository base URLs to try, one after the other, while cloning sources)
-$(call option,BRANCHES,$(shell git name-rev --name-only HEAD) develop master,Space-separated list of git refs such as branches to try to checkout after the sources have been cloned)
+$(call option,BRANCHES,$(shell git name-rev --name-only HEAD | grep -v master) develop master,Space-separated list of git refs such as branches to try to checkout after the sources have been cloned)
+$(call option,FORCE_BINARIES,no,Force building all the request binary packages even if they are already available)
+$(call option,BUILD_MISSING_BINARIES,no,If a required binary archive is not available build it from source)
 $(call option,CLONE_ATTEMPTS,3,Attempts to clone a remote before giving up)
 $(call option,CLONE_ATTEMPTS_PAUSE,10,Seconds to wait before an attempt to clone a remote and the next one)
-$(eval CLONE_ATTEMPTS_LOOP := $(shell seq $(CLONE_ATTEMPTS)))
+$(eval CLONE_ATTEMPTS_LOOP := $(SEQ$(CLONE_ATTEMPTS)))
 
 # $(shell echo $(1) | tr a-z- A-Z_)
 define target-to-prefix
@@ -68,41 +70,90 @@ define binary-archive-directory
 $(BINARY_ARCHIVE_PATH)/$(PLATFORM_NAME)/$(1)
 endef
 
-# $(1): target name
-# $(2): suffix
-define binary-archive-name
-$(call binary-archive-directory,$(1))/$(2).tar.gz
+# $(1): source name prefix
+# $(2): hash
+# $(3): branch
+define declare-binary-archive-name
+	$(eval TMP_PARTS :=$(subst /,$(SPACE),$($(1)_TARGET_NAME))) \
+	DEFINED_BY="$(foreach INDEX,$(SEQ$(words $(TMP_PARTS))),$(wildcard support/components/$(subst $(SPACE),/,$(wordlist 1,$(INDEX),$(TMP_PARTS))).mk))"; \
+	ARCHIVE_NAME=$(if $(2),$(2),$(if $($(1)_CLONE_PATH),$$$$(git -C '$($(1)_SOURCE_PATH)' rev-parse HEAD),none))_$$$$(git log -1 --pretty=format:"%H" $$$$DEFINED_BY).tar.gz; \
+	BRANCH_NAME=$(if $(3),$(3),$(if $($(1)_CLONE_PATH),$$$$(git -C '$($(1)_SOURCE_PATH)' rev-parse --abbrev-ref HEAD | tr '/' '-'),none))_$$$$(git rev-parse --abbrev-ref HEAD | tr '/' '-').tar.gz;
 endef
 
-# $(1): target to archive
-# $(2): source path
-# $(3): target install file
+# $(1): build name prefix
+# $(2): source name prefix
+define declare-binary-archive-path
+	if test -n "$($(2)_CLONE_PATH)"; then \
+	  TEMP=$$$$(mktemp) || exit; \
+	  trap "rm -f -- '$$$$TEMP'" EXIT; \
+	  for REMOTE in $(REMOTES_BASE_URL); do \
+	    $(call strip-call,retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),git ls-remote -h --refs $$$${REMOTE}$($(2)_CLONE_PATH) > "$$$$TEMP") || true; \
+	    if test -s "$$$$TEMP"; then \
+	      for BRANCH in $(BRANCHES); do \
+	        RES=$$$$( (grep 'refs/heads/'"$$$$BRANCH"'$$$$' "$$$$TEMP" || true) | (grep -o '^[a-z0-9]*' || true) ); \
+	        if test -n "$$$$RES"; then \
+	          rm -f -- "$$$$TEMP"; \
+	          trap - EXIT; \
+$(call declare-binary-archive-name,$(2),$$$${RES},$$$${BRANCH}) \
+	          HASH_FILE="$(call strip-call,binary-archive-directory,$($(1)_TARGET_NAME))/$$$$ARCHIVE_NAME"; \
+	          BRANCH_FILE="$(call strip-call,binary-archive-directory,$($(1)_TARGET_NAME))/$$$$BRANCH_NAME"; \
+	        fi; \
+	      done; \
+	    fi; \
+	  done; \
+	else \
+	  RES=none; \
+	  BRANCH=none; \
+$(call declare-binary-archive-name,$(2),$$$${RES},$$$${BRANCH}) \
+	  HASH_FILE="$(call strip-call,binary-archive-directory,$($(1)_TARGET_NAME))/$$$$ARCHIVE_NAME"; \
+	  BRANCH_FILE="$(call strip-call,binary-archive-directory,$($(1)_TARGET_NAME))/$$$$BRANCH_NAME"; \
+	fi;
+endef
+
+# $(1): the message
+define log-info
+echo -e "\e[31m[INFO] $(1)\e[0m";
+endef
+
+# $(1): the message
+define log-error
+echo -e "\e[31m[ERROR] $(1)\e[0m";
+endef
+
+# $(1): build name prefix
+# $(2): source name prefix
 define create-binary-archive
-	rm -rf "$(TEMP_INSTALL_PATH)"
-	mkdir -p "$(TEMP_INSTALL_PATH)"
-	make $(3)
-	make install-$(1) "DESTDIR=$(TEMP_INSTALL_PATH)"
-	$(eval TMP_ARCHIVE_DIRECTORY := $(call binary-archive-directory,$(1)))
-	mkdir -p "$(TMP_ARCHIVE_DIRECTORY)"
-	touch "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz"
-	cd "$(TEMP_INSTALL_PATH)/$(INSTALL_PATH)"; tar caf "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz" --owner=0 --group=0 .
-	rm -rf "$(TEMP_INSTALL_PATH)"
-	if test -n "$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD)"; then \
-	  ln -f -s "$$$$(git -C '$(2)' rev-parse HEAD).tar.gz" "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD | tr '/' '-').tar.gz"; \
-	fi
+	$(eval TMP_ARCHIVE_DIRECTORY := $(call binary-archive-directory,$($(1)_TARGET_NAME)))
+$(call declare-binary-archive-path,$(1),$(2)) \
+	if $(if $(filter-out no,$(FORCE_BINARIES)),true,test ! -e "$$$$HASH_FILE"); then \
+	  $(call log-info,No binary archive available for $($(1)_TARGET_NAME)$(COMMA) building from source) \
+	  rm -rf "$(TEMP_INSTALL_PATH)"; \
+	  mkdir -p "$(TEMP_INSTALL_PATH)"; \
+	  make $($(1)_INSTALL_TARGET_FILE) BUILD_MISSING_BINARIES=yes; \
+	  make install-$($(1)_TARGET_NAME) "DESTDIR=$(TEMP_INSTALL_PATH)"; \
+	  mkdir -p "$(TMP_ARCHIVE_DIRECTORY)"; \
+	  touch "$(TMP_ARCHIVE_DIRECTORY)/$$$$ARCHIVE_NAME"; \
+	  cd "$(TEMP_INSTALL_PATH)/$(INSTALL_PATH)"; \
+	  tar caf "$(TMP_ARCHIVE_DIRECTORY)//$$$$ARCHIVE_NAME" --owner=0 --group=0 "."; \
+	  cd -; \
+	  rm -rf "$(TEMP_INSTALL_PATH)"; \
+	else \
+	  $(call log-info,We already have an archive for $($(1)_TARGET_NAME)) \
+	fi; \
+	rm -f "$(TMP_ARCHIVE_DIRECTORY)/$$$$BRANCH_NAME"; \
+	ln -f -s "$$$$ARCHIVE_NAME" "$(TMP_ARCHIVE_DIRECTORY)/$$$$BRANCH_NAME";
 endef
 
-# $(1): target to archive
-# $(2): source path
+# $(1): build name prefix
+# $(2): source name prefix
 define git-add-binary-archive
-	$(eval TMP_ARCHIVE_DIRECTORY := $(call binary-archive-directory,$(1)))
-	if test -e "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz"; then \
-	  git -C '$(BINARY_ARCHIVE_PATH)' add "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse HEAD).tar.gz"; \
-	fi
-	if test -n "$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD)"; then \
-	  if test -e "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD | tr '/' '-').tar.gz"; then \
-	    git -C '$(BINARY_ARCHIVE_PATH)' add "$(TMP_ARCHIVE_DIRECTORY)/$$$$(git -C '$(2)' rev-parse --abbrev-ref HEAD | tr '/' '-').tar.gz"; \
-	  fi \
+	$(eval TMP_ARCHIVE_DIRECTORY := $(call binary-archive-directory,$($(1)_TARGET_NAME)))
+$(call declare-binary-archive-path,$(1),$(2)) \
+	if test -e "$$$$HASH_FILE"; then \
+	  git -C '$(BINARY_ARCHIVE_PATH)' add "$$$$HASH_FILE"; \
+	fi; \
+	if test -e "$$$$BRANCH_FILE"; then \
+	  git -C '$(BINARY_ARCHIVE_PATH)' add "$$$$BRANCH_FILE"; \
 	fi
 endef
 
@@ -126,6 +177,7 @@ endef
 # $(1): remote-relative path of the repository to clone
 # $(2): clone destination path
 define clone
+	$(call log-info,Cloning $(1) into $(2))
 	$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),$(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),GIT_LFS_SKIP_SMUDGE=1 git clone $(REMOTE_BASE_URL)$(1) $(2)) || ) false
 	$(foreach BRANCH,$(BRANCHES),git -C $(2) checkout -b $(BRANCH) origin/$(BRANCH) || ) true
 endef
@@ -134,9 +186,13 @@ endef
 # $(2): path
 # $(3): file name
 define download-tar
+	$(call log-info,Downloading $(3) from $(2))
 	mkdir -p $(1)
 	mkdir -p $(SOURCE_ARCHIVE_PATH)
-	test -e "$(SOURCE_ARCHIVE_PATH)/$(3)" || $(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),curl -L "$(2)/$(3)" > "$(SOURCE_ARCHIVE_PATH)/$(3)")
+	trap "rm -f -- '$(SOURCE_ARCHIVE_PATH)/$(3)'" EXIT; \
+	test -e "$(SOURCE_ARCHIVE_PATH)/$(3)" || $(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),curl -L "$(2)/$(3)" > "$(SOURCE_ARCHIVE_PATH)/$(3)"); \
+	trap - EXIT;
+	$(call log-info,Extracting $(3) into $(1))
 	cd "$(1)" && tar xaf "$(SOURCE_ARCHIVE_PATH)/$(3)" --strip-components=1
 endef
 
@@ -144,7 +200,13 @@ endef
 
 # $(1): archive path
 define fetch-binary-and-extract
-	python support/git-lfs "$(BINARY_ARCHIVE_PATH)" --only "`readlink -f $(1)`"; \
+	RELATIVE_PATH="$$$$(realpath --relative-to=$(PWD) $(1))"; \
+	if test -n "$$$$(git -C $(BINARY_ARCHIVE_PATH) ls-files $(1))"; then \
+	  $(call log-info,Fetching $$$$RELATIVE_PATH) \
+	  cd $(BINARY_ARCHIVE_PATH); \
+	  python $(PWD)/support/git-lfs  --only "`readlink -f $(1)`"; \
+	fi; \
+	$(call log-info,Extracting $$$$RELATIVE_PATH) \
 	mkdir -p "$(INSTALL_PATH)"; \
 	cd "$(INSTALL_PATH)"; \
 	tar xaf "$(1)";
@@ -155,7 +217,7 @@ endef
 define touch-install-files
 $(eval TMP := $($(1)$(call target-to-prefix,$($(2)_PROVIDES))_INSTALL_TARGET_FILE))
 ifneq (,$(TMP))
-	TEMP_FILE=$$$$(tempfile); rm $$$$TEMP_FILE; if test -e $(TMP); then mv $(TMP) $$$$TEMP_FILE; fi; \
+	TEMP_FILE=$$$$(mktemp); rm $$$$TEMP_FILE; if test -e $(TMP); then mv $(TMP) $$$$TEMP_FILE; fi; \
 	rm -f $($(1)_INSTALL_TARGET_FILE)*; \
 	if test -e $$$$TEMP_FILE; then mv $$$$TEMP_FILE $(TMP); else $(call touch,$(TMP)) fi;
 else
@@ -193,7 +255,7 @@ $(eval COMPONENTS += $(1))
 $(eval $(1)_TARGET_NAME := $(2))
 
 # Default clone path, used to get the commit/branch for the component
-$(eval $(1)_CLONE_PATH := orchestra)
+$(eval $(1)_CLONE_PATH := )
 
 $(eval $(1)_INSTALL_TARGET_FILE := $(call install-target-file,$($(1)_TARGET_NAME)))
 
@@ -290,6 +352,7 @@ $(eval $(1)_INSTALL_DEPS := $(8))
 # configure- target
 .PHONY: configure-$($(1)_TARGET_NAME)
 configure-$($(1)_TARGET_NAME) $($(1)_CONFIGURE_TARGET_FILE): $($(6)_SOURCE_TARGET_FILE) $($(1)_CONFIGURE_DEPS) $($(1)_INSTALL_DEPS)
+	$(call log-info,Configuring $($(1)_TARGET_NAME))
 	mkdir -p $(BUILD_PATH)
 $(call do-configure-$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH),$($(1)_BUILD_PATH))
 $(call touch,$($(1)_CONFIGURE_TARGET_FILE))
@@ -297,6 +360,7 @@ $(call touch,$($(1)_CONFIGURE_TARGET_FILE))
 # build- target
 .PHONY: build-$($(1)_TARGET_NAME)
 build-$($(1)_TARGET_NAME): $($(1)_CONFIGURE_TARGET_FILE)
+	$(call log-info,Building $($(1)_TARGET_NAME))
 $(if $(do-build-$($(1)_TARGET_NAME)),
 $(call do-build-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH)),
 $(call make,$($(1)_BUILD_PATH),))
@@ -304,6 +368,7 @@ $(call make,$($(1)_BUILD_PATH),))
 # test- target
 .PHONY: test-$($(1)_TARGET_NAME)
 test-$($(1)_TARGET_NAME): build-$($(1)_TARGET_NAME)
+	$(call log-info,Testing $($(1)_TARGET_NAME))
 $(if $(do-test-$($(1)_TARGET_NAME)),
 $(call do-test-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH)),)
 
@@ -315,6 +380,7 @@ install-$($(1)_TARGET_NAME): $($(1)_CONFIGURE_TARGET_FILE)
 else
 install-$($(1)_TARGET_NAME) $($(1)_INSTALL_TARGET_FILE): $($(1)_CONFIGURE_TARGET_FILE)
 endif
+	$(call log-info,Installing $($(1)_TARGET_NAME))
 	mkdir -p "$$$$DESTDIR$(INSTALL_PATH)/include"
 	mkdir -p "$$$$DESTDIR$(INSTALL_PATH)/lib"
 	mkdir -p "$$$$DESTDIR$(INSTALL_PATH)/bin"
@@ -328,6 +394,7 @@ $(call touch-install-files,$(6),$(1))
 # clean- target
 .PHONY: clean-$($(1)_TARGET_NAME)
 clean-$($(1)_TARGET_NAME):
+	$(call log-info,Cleaning $($(1)_TARGET_NAME))
 	rm -rf $($(1)_BUILD_PATH)
 
 # Add the clean- target for the current build to the component clean- target
@@ -340,15 +407,14 @@ $($(1)_TARGET_NAME): $($(1)_INSTALL_TARGET_FILE)
 
 .PHONY: create-binary-archive-$($(1)_TARGET_NAME)
 create-binary-archive-$($(1)_TARGET_NAME): $(BINARY_ARCHIVE_PATH)/README.md
-$(call create-binary-archive,$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH),$($(1)_INSTALL_TARGET_FILE))
+$(call create-binary-archive,$(1),$(6))
 
 .PHONY: git-add-binary-archive-$($(1)_TARGET_NAME)
 git-add-binary-archive-$($(1)_TARGET_NAME): $(BINARY_ARCHIVE_PATH)/README.md
-$(call git-add-binary-archive,$($(1)_TARGET_NAME),$($(6)_SOURCE_PATH))
+$(call git-add-binary-archive,$(1),$(6))
 
 # fetch- target
-# $(1): target to fetch
-# $(2): source path
+#
 # 1. Find the branch
 # 2. Get the commit
 # 3. Check for the commit file
@@ -358,34 +424,15 @@ fetch-$($(1)_TARGET_NAME) $($(1)_INSTALL_TARGET_FILE): $(BINARY_ARCHIVE_PATH)/RE
 else
 fetch-$($(1)_TARGET_NAME): $(BINARY_ARCHIVE_PATH)/README.md $($(1)_INSTALL_DEPS)
 endif
-	TEMP=$$$$(tempfile) || exit; \
-	for REMOTE in $(REMOTES_BASE_URL); do \
-        trap "rm -f -- '$$$$TEMP'" EXIT; \
-	    $(call strip-call,retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),git ls-remote -h --refs $$$${REMOTE}$($(6)_CLONE_PATH) > "$$$$TEMP") || true; \
-	    if test -s "$$$$TEMP"; then \
-		    for BRANCH in $(BRANCHES); do \
-	            RES=$$$$( (grep 'refs/heads/'"$$$$BRANCH"'$$$$' "$$$$TEMP" || true) | (grep -o '^[a-z0-9]*' || true) ); \
-	            if test -n "$$$$RES"; then \
-	                rm -f -- "$$$$TEMP"; \
-	                trap - EXIT; \
-	                HASH_FILE="$(call strip-call,binary-archive-directory,$($(1)_TARGET_NAME))/$$$$RES.tar.gz"; \
-	                BRANCH_FILE="$(call strip-call,binary-archive-directory,$($(1)_TARGET_NAME))/$$$$BRANCH.tar.gz"; \
-	                if test -e "$$$$HASH_FILE"; then \
-	                    $(call strip-call,fetch-binary-and-extract,$$$$HASH_FILE) \
-	                elif test -e "$$$$BRANCH_FILE"; then \
-	                    $(call strip-call,fetch-binary-and-extract,$$$$BRANCH_FILE) \
-	                else \
-	                    echo "Couldn't find the archive for branch $$$$BRANCH"; \
-	                    exit 1; \
-	                fi; \
-                    exit 0; \
-$(call strip-call,touch,$($(6)_INSTALL_TARGET_FILE)) \
-$(call strip-call,touch,$($(1)_INSTALL_TARGET_FILE)) \
-	            fi; \
-	        done; \
-	    fi; \
-	done; \
-	exit 1;
+$(call declare-binary-archive-path,$(1),$(6)) \
+	if test -e "$$$$HASH_FILE"; then \
+	  $(call strip-call,fetch-binary-and-extract,$$$$HASH_FILE) \
+	elif $(if $(filter-out no,$(BUILD_MISSING_BINARIES)),true,false); then \
+	  make install-$($(1)_TARGET_NAME); \
+	else \
+	  $(call log-error,Couldn't find the archive for branch $$$$BRANCH) \
+	  exit 1; \
+	fi; \
 $(call touch-install-files,$(6),$(1))
 endef
 

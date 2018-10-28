@@ -1,0 +1,10 @@
+$(call option,AARCH64_TRIPLE,aarch64-unknown-linux-musl)
+$(call option,AARCH64_LINUX_ARCH_NAME,arm64)
+$(call option,AARCH64_BINUTILS_VERSION,2.29.1)
+$(call option,AARCH64_MUSL_VERSION,1.1.19)
+$(call option,AARCH64_LINUX_VERSION,4.14.18)
+$(call option,AARCH64_GCC_VERSION,7.3.0)
+$(call option,AARCH64_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --without-isl)
+$(call option,AARCH64_DYNAMIC,0)
+$(call prepare-for-toolchain,aarch64)
+include support/toolchain.mk

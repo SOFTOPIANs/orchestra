@@ -1,0 +1,40 @@
+#!/bin/bash
+
+set -e
+
+if test "$#" -ne 2; then
+    echo "Usage: $0 GIT_REMOTE_URL GIT_LFS_STORAGE"
+    exit 1
+fi
+
+GIT_REMOTE_URL="$1"
+GIT_LFS_STORAGE="$2"
+
+source lfs-helpers.sh
+
+# Disable git-lfs
+export GIT_LFS_SKIP_SMUDGE=1
+
+if test -e target; then
+    echo "The target directory already exists!"
+    exit 1
+fi
+
+# Clone the repository
+git clone "$GIT_REMOTE_URL" target
+trap "{ rm -rf $PWD/target; }" EXIT
+cd target/
+
+git rev-list --all | get_lfs_hashes > a
+git show-ref | awk '{ print $1 }' | sort -u | get_lfs_hashes > b
+
+set_diff a b | (
+    cd ..;
+    while read FILE; do
+        FILE="$GIT_LFS_STORAGE/$FILE"
+        if test -f "$FILE"; then
+            echo "Removing $FILE"
+            echo rm -f "$FILE"
+        fi
+    done;
+)

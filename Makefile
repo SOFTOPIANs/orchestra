@@ -10,6 +10,8 @@ LPAR := (
 RPAR := )
 SHELL := /bin/bash -e
 
+include support/seq.mk
+
 # TODO:
 #
 # * Time, get peak memory consumption and size targets
@@ -47,6 +49,10 @@ $(call strip-call,option, \
     toolchain/x86-64/linux-headers \
     toolchain/x86-64/musl \
     toolchain/x86-64/gcc \
+    toolchain/aarch64/binutils \
+    toolchain/aarch64/linux-headers \
+    toolchain/aarch64/musl \
+    toolchain/aarch64/gcc \
     toolchain/s390x/binutils \
     toolchain/s390x/linux-headers \
     toolchain/s390x/musl \
@@ -60,240 +66,8 @@ include support/component.mk
 
 $(eval BIN_PATH := bin)
 
-# LLVM
-# ====
-
-# $(1): source path
-# $(2): build path
-# $(3): CMAKE_BUILD_TYPE
-define do-configure-llvm
-	mkdir -p "$(2)"
-
-	cd "$(2)"; \
-	cmake "$(1)" \
-	      -DCMAKE_BUILD_TYPE=$(3) \
-	      -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
-	      -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
-	      -DLLVM_TARGETS_TO_BUILD="X86" \
-	      -DCMAKE_INSTALL_PREFIX="$(INSTALL_PATH)" \
-	      -DBUILD_SHARED_LIBS=ON \
-	      -Wno-dev
-endef
-
-define do-configure-llvm-debug
-$(call do-configure-llvm,$(1),$(2),Debug)
-endef
-
-define do-configure-llvm-release
-$(call do-configure-llvm,$(1),$(2),RelWithDebInfo)
-endef
-
-CLANG_SOURCE_PATH := $(SOURCE_PATH)/llvm/tools/clang
-CLANG_SOURCE_TARGET_FILE := $(CLANG_SOURCE_PATH)/CMakeLists.txt
-.PHONE: clone-clang
-clone-clang: $(CLANG_SOURCE_TARGET_FILE)
-$(CLANG_SOURCE_TARGET_FILE):
-	$(call clone,clang,$(CLANG_SOURCE_PATH))
-	$(call touch,$(CLANG_SOURCE_TARGET_FILE))
-
-$(eval \
-  $(call strip-call, \
-    multi-build-cmake-component, \
-    llvm, \
-    release, \
-    $(CLANG_SOURCE_TARGET_FILE), \
-    , \
-    , \
-    release, \
-    debug))
-
-# QEMU
-# ====
-
-# $(1): source path
-# $(2): build path
-# $(3): extra configure flags
-define do-configure-qemu-common
-	mkdir -p "$(2)"
-	cd "$(2)"; \
-    export LLVM_CONFIG="$(INSTALL_PATH)/bin/llvm-config"; \
-	"$(1)/configure" \
-	    --prefix="$(INSTALL_PATH)" \
-	    --target-list=" \
-	        arm-libtinycode \
-	        arm-linux-user \
-	        i386-libtinycode \
-	        i386-linux-user \
-	        mips-libtinycode \
-	        mips-linux-user \
-	        s390x-libtinycode \
-	        s390x-linux-user \
-	        x86_64-libtinycode \
-	        x86_64-linux-user \
-	        " \
-	    --disable-werror \
-	    --enable-llvm-helpers \
-	    --disable-kvm \
-	    --without-pixman \
-	    --disable-tools \
-	    --disable-system \
-	    --python=$(shell which python2) \
-	    $(3)
-endef
-
-define do-configure-qemu-debug
-$(call do-configure-qemu-common,$(1),$(2),--enable-debug --extra-cflags="-ggdb -O0")
-endef
-
-define do-configure-qemu-release
-$(call do-configure-qemu-common,$(1),$(2),--extra-cflags="-ggdb")
-endef
-
-$(eval \
-  $(call strip-call,autotools-component-source, \
-    qemu, \
-    -debug))
-
-$(eval \
-  $(call strip-call,autotools-component-build, \
-    qemu, \
-    -debug, \
-    $(LLVM_INSTALL_TARGET_FILE)))
-
-$(eval \
-  $(call strip-call,autotools-component-build, \
-    qemu, \
-    -release, \
-    $(LLVM_INSTALL_TARGET_FILE)))
-
-# Toolchains
-# ==========
-
-$(call option,COREUTILS_VERSION,8.29,Version of coreutils to build)
-
-$(call option,LIBC_CONFIGS,default gc-o0 gc-o1 gc-o2 gc-o3,Name of the configurations of the libc to compile)
-$(call option,LIBC_DEFAULT_CONFIG,default,Name of the default configuration to use for the libc)
-$(eval LIBC_CONFIG_DEFAULT_FLAGS ?= -ggdb3)
-$(eval LIBC_CONFIG_GC_O0_FLAGS ?= -ggdb3 -Wl$$(COMMA)--gc-sections -ffunction-sections -O0)
-$(eval LIBC_CONFIG_GC_O1_FLAGS ?= -ggdb3 -Wl$$(COMMA)--gc-sections -ffunction-sections -O1)
-$(eval LIBC_CONFIG_GC_O2_FLAGS ?= -ggdb3 -Wl$$(COMMA)--gc-sections -ffunction-sections -O2)
-$(eval LIBC_CONFIG_GC_O3_FLAGS ?= -ggdb3 -Wl$$(COMMA)--gc-sections -ffunction-sections -O3)
-$(foreach LIBC_CONFIG,$(LIBC_CONFIGS),$(call option,LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS,$(LIBC_CONFIG_$(call target-to-prefix,$(LIBC_CONFIG))_FLAGS),Compile flags for $(LIBC_CONFIG)))
-
-# $(1): target prefix for toolchain
-define prepare-for-toolchain
-$(strip
-$(eval TOOLCHAIN := $(1))
-$(eval TMP := $(call target-to-prefix,$(1)))
-$(eval TRIPLE := $($(TMP)_TRIPLE))
-$(eval LINUX_ARCH_NAME := $($(TMP)_LINUX_ARCH_NAME))
-$(eval UCLIBC_ARCH_NAME := $($(TMP)_UCLIBC_ARCH_NAME))
-$(eval BINUTILS_VERSION := $($(TMP)_BINUTILS_VERSION))
-$(eval MUSL_VERSION := $($(TMP)_MUSL_VERSION))
-$(eval UCLIBC_VERSION := $($(TMP)_UCLIBC_VERSION))
-$(eval LINUX_VERSION := $($(TMP)_LINUX_VERSION))
-$(eval GCC_VERSION := $($(TMP)_GCC_VERSION))
-$(eval EXTRA_GCC_CONFIGURE_OPTIONS := $($(TMP)_EXTRA_GCC_CONFIGURE_OPTIONS))
-$(eval MUSL_CFLAGS := $($(TMP)_MUSL_CFLAGS))
-$(eval DYNAMIC := $($(TMP)_DYNAMIC))
-)
-endef
-
-$(call option,X86_64_TRIPLE,x86_64-gentoo-linux-musl)
-$(call option,X86_64_LINUX_ARCH_NAME,x86_64)
-$(call option,X86_64_BINUTILS_VERSION,2.25)
-$(call option,X86_64_MUSL_VERSION,1.1.12)
-$(call option,X86_64_LINUX_VERSION,4.5.2)
-$(call option,X86_64_GCC_VERSION,4.9.3)
-$(call option,X86_64_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --enable-targets=all --with-multilib-list=m64 --without-isl)
-$(call option,X86_64_DYNAMIC,0)
-$(call prepare-for-toolchain,x86-64)
-include support/toolchain.mk
-
-$(call option,I386_TRIPLE,i386-gentoo-linux-musl)
-$(call option,I386_LINUX_ARCH_NAME,i386)
-$(call option,I386_BINUTILS_VERSION,2.25)
-$(call option,I386_MUSL_VERSION,1.1.12)
-$(call option,I386_LINUX_VERSION,4.5.2)
-$(call option,I386_GCC_VERSION,4.9.3)
-$(call option,I386_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --enable-targets=all --without-isl)
-$(call option,I386_DYNAMIC,0)
-$(call prepare-for-toolchain,i386)
-include support/toolchain.mk
-
-$(call option,ARM_TRIPLE,armv7a-hardfloat-linux-uclibceabi)
-$(call option,ARM_LINUX_ARCH_NAME,arm)
-$(call option,ARM_UCLIBC_ARCH_NAME,arm)
-$(call option,ARM_BINUTILS_VERSION,2.25.1)
-$(call option,ARM_UCLIBC_VERSION,0.9.33.2)
-$(call option,ARM_LINUX_VERSION,4.5.2)
-$(call option,ARM_GCC_VERSION,4.9.3)
-$(call option,ARM_EXTRA_GCC_CONFIGURE_OPTIONS,--enable-__cxa_atexit --enable-tls --enable-clocale=gnu --with-float=softfp --with-arch=armv7-a --without-cloog)
-$(call option,ARM_DYNAMIC,0)
-$(call prepare-for-toolchain,arm)
-include support/toolchain.mk
-
-$(call option,AARCH64_TRIPLE,aarch64-unknown-linux-musl)
-$(call option,AARCH64_LINUX_ARCH_NAME,arm64)
-$(call option,AARCH64_BINUTILS_VERSION,2.29.1)
-$(call option,AARCH64_MUSL_VERSION,1.1.19)
-$(call option,AARCH64_LINUX_VERSION,4.14.18)
-$(call option,AARCH64_GCC_VERSION,7.3.0)
-$(call option,AARCH64_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --without-isl)
-$(call option,AARCH64_DYNAMIC,0)
-$(call prepare-for-toolchain,aarch64)
-include support/toolchain.mk
-
-$(call option,S390X_TRIPLE,s390x-ibm-linux-musl)
-$(call option,S390X_LINUX_ARCH_NAME,s390)
-$(call option,S390X_BINUTILS_VERSION,2.29.1)
-$(call option,S390X_MUSL_VERSION,1.1.19)
-$(call option,S390X_LINUX_VERSION,4.14.18)
-$(call option,S390X_GCC_VERSION,7.3.0)
-$(call option,S390X_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --without-isl --with-long-double-128)
-$(call option,S390X_DYNAMIC,0)
-$(call prepare-for-toolchain,s390x)
-include support/toolchain.mk
-
-$(call option,MIPS_TRIPLE,mips-unknown-linux-musl)
-$(call option,MIPS_LINUX_ARCH_NAME,mips)
-$(call option,MIPS_BINUTILS_VERSION,2.25.1)
-$(call option,MIPS_MUSL_VERSION,1.1.12)
-$(call option,MIPS_LINUX_VERSION,4.5.2)
-$(call option,MIPS_GCC_VERSION,5.3.0)
-$(call option,MIPS_EXTRA_GCC_CONFIGURE_OPTIONS,--with-abi= --without-isl)
-$(call option,MIPS_DYNAMIC,0)
-$(call prepare-for-toolchain,mips)
-include support/toolchain.mk
-
-# Boost
-# =====
-
-define do-build-boost
-	cd $(1) && ./b2 --ignore-site-config
-endef
-
-define do-install-boost
-	cd $(1) && ./b2 --prefix="$$$$DESTDIR$(INSTALL_PATH)" --ignore-site-config install
-endef
-
-# $(1): source path
-# $(2): build path
-define do-configure-boost
-	mkdir -p "$(2)"
-
-$(call download-tar,$(2),https://sourceforge.net/projects/boost/files/boost/1.63.0,boost_1_63_0.tar.bz2)
-
 $(call patch-if-exists,$(PATCH_PATH)/boost-1.63.0-ignore-Wparentheses-warnings.patch,$(2))
 
-	cd $(2) && ./bootstrap.sh --prefix="$(INSTALL_PATH)" --with-libraries=test
-
-endef
-
-$(eval $(call component-base,BOOST,boost,boost))
-$(eval \
-  $(call strip-call,simple-component-build, \
-    boost))
 
 # environment
 # ===========
@@ -314,48 +88,14 @@ environment: Makefile
 	echo >> environment
 	cat support/environment-footer >> environment
 
-# revamb
-# ======
+# Components
+# ==========
 
-# $(1): source path
-# $(2): build path
-define do-configure-revamb
-	mkdir -p "$(2)"
-	source $(PWD)/environment; \
-	cd "$(2)"; \
-	cmake "$(1)" \
-	      -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
-	      -DCMAKE_SHARED_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
-	      -DCMAKE_INSTALL_PREFIX="$(INSTALL_PATH)" \
-	      -DCMAKE_BUILD_TYPE="Debug" \
-	      -DQEMU_INSTALL_PATH="$(INSTALL_PATH)" \
-	      -DLLVM_DIR="$(INSTALL_PATH)/share/llvm/cmake" \
-	      -DC_COMPILER_x86_64="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/x86_64-gentoo-linux-musl/gcc-bin/4.9.3/x86_64-gentoo-linux-musl-gcc" \
-	      -DC_COMPILER_mips="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/mips-unknown-linux-musl/gcc-bin/5.3.0/mips-unknown-linux-musl-gcc" \
-	      -DC_COMPILER_i386="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/i386-gentoo-linux-musl/gcc-bin/4.9.3/i386-gentoo-linux-musl-gcc" \
-	      -DC_COMPILER_arm="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/armv7a-hardfloat-linux-uclibceabi/gcc-bin/4.9.3/armv7a-hardfloat-linux-uclibceabi-gcc" \
-	      -DC_COMPILER_s390x="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/s390x-ibm-linux-musl/gcc-bin/7.3.0/s390x-ibm-linux-musl-gcc" \
-	      -DBOOST_ROOT="$(INSTALL_PATH)" \
-	      -DBoost_NO_SYSTEM_PATHS=On
-endef
-
-# $(1): source path
-define do-test-revamb
-	source $(PWD)/environment; \
-	cd "$(1)"; \
-	ctest -j$(JOBS)
-endef
-
-$(eval \
-  $(call strip-call,simple-cmake-component, \
-    revamb, \
-    , \
-    , \
-    $(LLVM_INSTALL_TARGET_FILE) \
-      $(QEMU_INSTALL_TARGET_FILE) \
-      $(BOOST_INSTALL_TARGET_FILE) \
-      environment \
-      | $(TOOLCHAIN_INSTALL_TARGET_FILE)))
+include support/components/llvm.mk
+include support/components/qemu.mk
+include support/components/toolchain.mk
+include support/components/boost.mk
+include support/components/revamb.mk
 
 # Default targets
 # ===============
@@ -417,6 +157,7 @@ $(call option,PUSH_BINARY_ARCHIVE_NAME,Orchestra,Name to use for commits for bin
 .PHONY: commit-binary-archive
 commit-binary-archive: $(foreach COMPONENT,$(COMPONENTS),$(foreach BUILD,$($(COMPONENT)_BUILDS),git-add-binary-archive-$($(BUILD)_TARGET_NAME)))
 	git lfs >& /dev/null
+	cd '$(BINARY_ARCHIVE_PATH)' && $(PWD)/cleanup-binary-archives.sh
 	git -C '$(BINARY_ARCHIVE_PATH)' config user.email "$(PUSH_BINARY_ARCHIVE_EMAIL)"
 	git -C '$(BINARY_ARCHIVE_PATH)' config user.name "$(PUSH_BINARY_ARCHIVE_NAME)"
 	git -C '$(BINARY_ARCHIVE_PATH)' commit -m'Automatic binary archives'
@@ -425,7 +166,13 @@ commit-binary-archive: $(foreach COMPONENT,$(COMPONENTS),$(foreach BUILD,$($(COM
 	touch $(BINARY_ARCHIVE_PATH)/.netrc
 	chmod 600 $(BINARY_ARCHIVE_PATH)/.netrc
 	CONTENT="$$PUSH_BINARY_ARCHIVE_NETRC" support/env-to-file.py '$(BINARY_ARCHIVE_PATH)/.netrc'
-	HOME='$(BINARY_ARCHIVE_PATH)' git -C '$(BINARY_ARCHIVE_PATH)' push $$PUSH_BINARY_ARCHIVE_REMOTE $$(git -C '$(BINARY_ARCHIVE_PATH)' name-rev --name-only HEAD) || (rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc; exit 1)
+
+	export HOME='$(BINARY_ARCHIVE_PATH)'; \
+	trap "rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc" EXIT; \
+	cd '$(BINARY_ARCHIVE_PATH)'; \
+	git lfs push --object-id $$PUSH_BINARY_ARCHIVE_REMOTE $$(git show -- $$(git diff --name-only HEAD^) | grep '^+oid' | sed 's|.*sha256:\(.*\)$$|\1|') && \
+	git push --no-verify $$PUSH_BINARY_ARCHIVE_REMOTE $$(git name-rev --name-only HEAD)
+
 	rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc
 
 # make2graph
@@ -435,4 +182,3 @@ $(call option,CC,cc,Host compiler)
 
 support/make2graph: support/make2graph.c
 	$(CC) $^ -o $@
-

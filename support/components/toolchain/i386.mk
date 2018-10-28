@@ -1,0 +1,10 @@
+$(call option,I386_TRIPLE,i386-gentoo-linux-musl)
+$(call option,I386_LINUX_ARCH_NAME,i386)
+$(call option,I386_BINUTILS_VERSION,2.25)
+$(call option,I386_MUSL_VERSION,1.1.12)
+$(call option,I386_LINUX_VERSION,4.5.2)
+$(call option,I386_GCC_VERSION,4.9.3)
+$(call option,I386_EXTRA_GCC_CONFIGURE_OPTIONS,--without-cloog --enable-targets=all --without-isl)
+$(call option,I386_DYNAMIC,0)
+$(call prepare-for-toolchain,i386)
+include support/toolchain.mk
