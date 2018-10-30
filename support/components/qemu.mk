@@ -17,6 +17,8 @@ define do-configure-qemu-common
 	           i386-linux-user \
 	           mips-libtinycode \
 	           mips-linux-user \
+	           mipsel-libtinycode \
+	           mipsel-linux-user \
 	           s390x-libtinycode \
 	           s390x-linux-user \
 	           x86_64-libtinycode \

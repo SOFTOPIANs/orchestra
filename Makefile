@@ -41,6 +41,10 @@ $(call strip-call,option, \
     toolchain/mips/linux-headers \
     toolchain/mips/musl \
     toolchain/mips/gcc \
+    toolchain/mipsel/binutils \
+    toolchain/mipsel/linux-headers \
+    toolchain/mipsel/musl \
+    toolchain/mipsel/gcc \
     toolchain/i386/binutils \
     toolchain/i386/linux-headers \
     toolchain/i386/musl \

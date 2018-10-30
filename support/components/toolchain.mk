@@ -37,3 +37,4 @@ include support/components/toolchain/arm.mk
 include support/components/toolchain/aarch64.mk
 include support/components/toolchain/s390x.mk
 include support/components/toolchain/mips.mk
+include support/components/toolchain/mipsel.mk
