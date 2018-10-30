@@ -31,10 +31,4 @@ $(eval DYNAMIC := $($(TMP)_DYNAMIC))
 )
 endef
 
-include support/components/toolchain/x86_64.mk
-include support/components/toolchain/i386.mk
-include support/components/toolchain/arm.mk
-include support/components/toolchain/aarch64.mk
-include support/components/toolchain/s390x.mk
-include support/components/toolchain/mips.mk
-include support/components/toolchain/mipsel.mk
+include support/components/toolchains-list.mk
