@@ -29,7 +29,7 @@ endef
 
 CLANG_SOURCE_PATH := $(SOURCE_PATH)/llvm/tools/clang
 CLANG_SOURCE_TARGET_FILE := $(CLANG_SOURCE_PATH)/CMakeLists.txt
-.PHONE: clone-clang
+.PHONY: clone-clang
 clone-clang: $(CLANG_SOURCE_TARGET_FILE)
 $(CLANG_SOURCE_TARGET_FILE):
 	$(call clone,clang,$(CLANG_SOURCE_PATH))
