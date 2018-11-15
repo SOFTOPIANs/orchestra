@@ -77,7 +77,7 @@ define declare-binary-archive-name
 	$(eval TMP_PARTS :=$(subst /,$(SPACE),$($(1)_TARGET_NAME))) \
 	DEFINED_BY="$(foreach INDEX,$(SEQ$(words $(TMP_PARTS))),$(wildcard support/components/$(subst $(SPACE),/,$(wordlist 1,$(INDEX),$(TMP_PARTS))).mk))"; \
 	ARCHIVE_NAME=$(if $(2),$(2),$(if $($(1)_CLONE_PATH),$$$$(git -C '$($(1)_SOURCE_PATH)' rev-parse HEAD),none))_$$$$(git log -1 --pretty=format:"%H" $$$$DEFINED_BY).tar.gz; \
-	BRANCH_NAME=$(if $(3),$(3),$(if $($(1)_CLONE_PATH),$$$$(git -C '$($(1)_SOURCE_PATH)' rev-parse --abbrev-ref HEAD | tr '/' '-'),none))_$$$$(git rev-parse --abbrev-ref HEAD | tr '/' '-').tar.gz;
+	BRANCH_NAME=$(if $(3),$$$$(echo "$(3)" | tr '/' '-'),$(if $($(1)_CLONE_PATH),$$$$(git -C '$($(1)_SOURCE_PATH)' rev-parse --abbrev-ref HEAD | tr '/' '-'),none))_$$$$(git rev-parse --abbrev-ref HEAD | tr '/' '-').tar.gz;
 endef
 
 # $(1): build name prefix

@@ -16,6 +16,7 @@ define do-configure-revamb
 	      -DLLVM_DIR="$(INSTALL_PATH)/share/llvm/cmake" \
 	      -DC_COMPILER_x86_64="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/x86_64-gentoo-linux-musl/gcc-bin/4.9.3/x86_64-gentoo-linux-musl-gcc" \
 	      -DC_COMPILER_mips="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/mips-unknown-linux-musl/gcc-bin/5.3.0/mips-unknown-linux-musl-gcc" \
+	      -DC_COMPILER_mipsel="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/mipsel-unknown-linux-musl/gcc-bin/5.3.0/mipsel-unknown-linux-musl-gcc" \
 	      -DC_COMPILER_i386="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/i386-gentoo-linux-musl/gcc-bin/4.9.3/i386-gentoo-linux-musl-gcc" \
 	      -DC_COMPILER_arm="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/armv7a-hardfloat-linux-uclibceabi/gcc-bin/4.9.3/armv7a-hardfloat-linux-uclibceabi-gcc" \
 	      -DC_COMPILER_s390x="$(INSTALL_PATH)/usr/x86_64-pc-linux-gnu/s390x-ibm-linux-musl/gcc-bin/7.3.0/s390x-ibm-linux-musl-gcc" \

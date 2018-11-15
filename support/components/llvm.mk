@@ -15,6 +15,7 @@ define do-configure-llvm
 	      -DLLVM_TARGETS_TO_BUILD="X86" \
 	      -DCMAKE_INSTALL_PREFIX="$(INSTALL_PATH)" \
 	      -DBUILD_SHARED_LIBS=ON \
+	      -DLLVM_ENABLE_DUMP=ON \
 	      -Wno-dev
 endef
 
