@@ -141,7 +141,7 @@ Launching build commands bypassing orchestra is fully supported. Just make sure 
 
 ```
 make configure-revamb
-source environment
+. ./environment
 cd build/revamb/
 make
 ```

@@ -77,20 +77,18 @@ $(call patch-if-exists,$(PATCH_PATH)/boost-1.63.0-ignore-Wparentheses-warnings.p
 # ===========
 
 define print-prepend-path
-	echo 'prepend_path PATH "$$INSTALL_PATH/$(1)"' >> environment
+	echo 'export PATH="$$INSTALL_PATH/$(1)$${PATH:+:$${PATH}}"' >> environment
 
 endef
 
 environment: Makefile
-	cat support/environment-header > environment
-	echo >> environment
-	echo 'INSTALL_PATH="$(INSTALL_PATH)"' >> environment
+	echo 'INSTALL_PATH="$(INSTALL_PATH)"' > environment
 	echo >> environment
 	$(foreach path,$(BIN_PATH),$(call print-prepend-path,$(path)))
 	echo >> environment
-	echo 'prepend_path LD_LIBRARY_PATH "$$INSTALL_PATH/lib"' >> environment
+	echo 'export LD_LIBRARY_PATH="$$INSTALL_PATH/lib$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}"' >> environment
 	echo >> environment
-	cat support/environment-footer >> environment
+	echo 'unset INSTALL_PATH' >> environment
 
 # Components
 # ==========
