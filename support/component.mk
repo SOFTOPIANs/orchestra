@@ -362,7 +362,7 @@ $(call touch,$($(1)_CONFIGURE_TARGET_FILE))
 build-$($(1)_TARGET_NAME): $($(1)_CONFIGURE_TARGET_FILE)
 	$(call log-info,Building $($(1)_TARGET_NAME))
 $(if $(do-build-$($(1)_TARGET_NAME)),
-$(call do-build-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH)),
+$(call do-build-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH),$($(6)_SOURCE_PATH)),
 $(call make,$($(1)_BUILD_PATH),))
 
 # test- target
@@ -386,7 +386,7 @@ endif
 	mkdir -p "$$$$DESTDIR$(INSTALL_PATH)/bin"
 	mkdir -p "$$$$DESTDIR$(INSTALL_PATH)/libexec"
 $(if $(do-install-$($(1)_TARGET_NAME)),
-$(call do-install-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH)),
+$(call do-install-$($(1)_TARGET_NAME),$($(1)_BUILD_PATH),$($(6)_SOURCE_PATH)),
 $(call make,$($(1)_BUILD_PATH),)
 $(call make,$($(1)_BUILD_PATH),install))
 $(call touch-install-files,$(6),$(1))

@@ -88,7 +88,10 @@ environment: Makefile
 	echo >> environment
 	echo 'export LD_LIBRARY_PATH="$$INSTALL_PATH/lib$${LD_LIBRARY_PATH:+:$${LD_LIBRARY_PATH}}"' >> environment
 	echo >> environment
+	echo 'export PYTHONPATH="$$INSTALL_PATH/lib/python$${PYTHONPATH:+:$${PYTHONPATH}}"' >> environment
+	echo >> environment
 	echo 'unset INSTALL_PATH' >> environment
+
 
 # Components
 # ==========
@@ -98,6 +101,7 @@ include support/components/qemu.mk
 include support/components/toolchain.mk
 include support/components/boost.mk
 include support/components/revamb.mk
+include support/components/llvmcpy.mk
 
 # Default targets
 # ===============
