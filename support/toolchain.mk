@@ -455,7 +455,8 @@ build-toolchain: build-toolchain/$(TOOLCHAIN)
 install-toolchain: install-toolchain/$(TOOLCHAIN)
 test-toolchain: test-toolchain/$(TOOLCHAIN)
 
-$(eval TOOLCHAIN_INSTALL_TARGET_FILE += $($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE2_INSTALL_TARGET_FILE))
+
+$(eval TOOLCHAIN_INSTALL_TARGET_FILE += $(if $(filter all,$(DEFAULT_TOOLCHAINS))$(filter $(TOOLCHAIN),$(DEFAULT_TOOLCHAINS)),$($(TOOLCHAIN_VAR_PREFIX)GCC_STAGE2_INSTALL_TARGET_FILE),))
 
 # coreutils
 # =========

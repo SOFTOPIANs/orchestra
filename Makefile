@@ -30,6 +30,11 @@ $(call $(strip $(1)),$(strip $(2)),$(strip $(3)),$(strip $(4)),$(strip $(5)),$(s
 endef
 
 $(call strip-call,option, \
+  DEFAULT_TOOLCHAINS, \
+  all, \
+  List of toolchains to build along with revamb)
+
+$(call strip-call,option, \
   BINARY_COMPONENTS, \
   boost \
     llvm \

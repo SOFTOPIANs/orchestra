@@ -40,4 +40,4 @@ $(eval \
       $(QEMU_INSTALL_TARGET_FILE) \
       $(BOOST_INSTALL_TARGET_FILE) \
       environment \
-      | $(TOOLCHAIN_INSTALL_TARGET_FILE)))
+      $(TOOLCHAIN_INSTALL_TARGET_FILE)))
