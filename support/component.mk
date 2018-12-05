@@ -40,7 +40,7 @@ endef
 # $(2): default build target name
 # $(3): component target name
 define print-component-build
-	@echo '  '$($(1)_TARGET_NAME)$(if $($(1)_CONFIGURE_DEPS),' [configure deps: '$(subst |,[order only:],$($(1)_CONFIGURE_DEPS))']',)$(if $($(1)_INSTALL_DEPS),' [install deps: '$(subst |,[order only:],$($(1)_INSTALL_DEPS))']',)$(if $(filter $(2),$(1)),' [default]',)$(if $($(1)_PROVIDES),' [provides $(3)$($(1)_PROVIDES)]',)
+	@echo '  '$($(1)_TARGET_NAME)$(if $($(1)_CONFIGURE_DEPS),' [configure deps: '$(subst |,[order only:],$(subst $(PWD)/,,$($(1)_CONFIGURE_DEPS)))']',)$(if $($(1)_INSTALL_DEPS),' [install deps: '$(subst |,[order only:],$(subst $(PWD)/,,$($(1)_INSTALL_DEPS)))']',)$(if $(filter $(2),$(1)),' [default]',)$(if $($(1)_PROVIDES),' [provides $(3)$($(1)_PROVIDES)]',)
 
 endef
 
