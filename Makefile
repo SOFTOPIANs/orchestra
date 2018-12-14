@@ -107,6 +107,7 @@ include support/components/toolchain.mk
 include support/components/boost.mk
 include support/components/revamb.mk
 include support/components/llvmcpy.mk
+include support/components/revng-c.mk
 
 # Default targets
 # ===============
