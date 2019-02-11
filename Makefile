@@ -95,6 +95,8 @@ environment: Makefile
 	echo >> environment
 	echo 'export PYTHONPATH="$$INSTALL_PATH/lib/python$${PYTHONPATH:+:$${PYTHONPATH}}"' >> environment
 	echo >> environment
+	echo 'export QML2_IMPORT_PATH="$$INSTALL_PATH/lib/qt5/qml"' >> environment
+	echo >> environment
 	echo 'unset INSTALL_PATH' >> environment
 
 
