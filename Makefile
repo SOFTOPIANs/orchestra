@@ -152,11 +152,21 @@ help:
 	@echo '    make help-components'
 	@echo
 
+$(call strip-call,option, \
+  EXCLUDE_CREATE_BINARY_ARCHIVE_COMPONENTS, \
+  , \
+  Components to exclude in from CREATE_BINARY_ARCHIVE_COMPONENTS)
+
+$(call strip-call,option, \
+  CREATE_BINARY_ARCHIVE_COMPONENTS, \
+  $(filter-out $(EXCLUDE_CREATE_BINARY_ARCHIVE_COMPONENTS),$(foreach COMPONENT,$(COMPONENTS),$($(COMPONENT)_TARGET_NAME))), \
+  Components to include in create-binary-archive)
+
 .PHONY: create-binary-archive
-create-binary-archive: $(foreach COMPONENT,$(COMPONENTS),create-binary-archive-$($(COMPONENT)_TARGET_NAME))
+create-binary-archive: $(foreach COMPONENT,$(CREATE_BINARY_ARCHIVE_COMPONENTS),create-binary-archive-$(COMPONENT))
 
 .PHONY: create-binary-archive-all
-create-binary-archive-all: $(foreach COMPONENT,$(COMPONENTS),$(foreach BUILD,$($(COMPONENT)_BUILDS),create-binary-archive-$($(BUILD)_TARGET_NAME)))
+create-binary-archive-all: $(foreach COMPONENT,$(CREATE_BINARY_ARCHIVE_COMPONENTS),$(foreach BUILD,$($(call target-to-prefix,$(COMPONENT))_BUILDS),create-binary-archive-$($(BUILD)_TARGET_NAME)))
 
 $(call option,PUSH_BINARY_ARCHIVE_NETRC,,Content of the .netrc file for credentials in the follwoing form: machine HOST login USERNAME password PASSWORD. It will not end up in the logs or in command lines but temporarily on disk.)
 $(call option,PUSH_BINARY_ARCHIVE_REMOTE,,Git URL to use to push binary archives. It will not end up in the logs but on the git command line.)
@@ -169,7 +179,7 @@ $(call option,PUSH_BINARY_ARCHIVE_NAME,Orchestra,Name to use for commits for bin
 # not world readable.
 
 .PHONY: commit-binary-archive
-commit-binary-archive: $(foreach COMPONENT,$(COMPONENTS),$(foreach BUILD,$($(COMPONENT)_BUILDS),git-add-binary-archive-$($(BUILD)_TARGET_NAME)))
+commit-binary-archive: $(foreach COMPONENT,$(CREATE_BINARY_ARCHIVE_COMPONENTS),$(foreach BUILD,$($(call target-to-prefix,$(COMPONENT))_BUILDS),git-add-binary-archive-$($(BUILD)_TARGET_NAME)))
 	git lfs >& /dev/null
 	cd '$(BINARY_ARCHIVE_PATH)' && $(PWD)/cleanup-binary-archives.sh
 	git -C '$(BINARY_ARCHIVE_PATH)' config user.email "$(PUSH_BINARY_ARCHIVE_EMAIL)"
