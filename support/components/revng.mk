@@ -1,9 +1,9 @@
-# revamb
+# revng
 # ======
 
 # $(1): source path
 # $(2): build path
-define do-configure-revamb
+define do-configure-revng
 	mkdir -p "$(2)"
 	source $(PWD)/environment; \
 	cd "$(2)"; \
@@ -25,7 +25,7 @@ define do-configure-revamb
 endef
 
 # $(1): source path
-define do-test-revamb
+define do-test-revng
 	source $(PWD)/environment; \
 	cd "$(1)"; \
 	ctest -j$(JOBS) || (cat Testing/Temporary/LastTest.log; false)
@@ -33,7 +33,7 @@ endef
 
 $(eval \
   $(call strip-call,simple-cmake-component, \
-    revamb, \
+    revng, \
     , \
     , \
     $(LLVM_INSTALL_TARGET_FILE) \

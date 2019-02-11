@@ -32,7 +32,7 @@ endef
 $(call strip-call,option, \
   DEFAULT_TOOLCHAINS, \
   all, \
-  List of toolchains to build along with revamb)
+  List of toolchains to build along with revng)
 
 $(call strip-call,option, \
   BINARY_COMPONENTS, \
@@ -107,14 +107,14 @@ include support/components/llvm.mk
 include support/components/qemu.mk
 include support/components/toolchain.mk
 include support/components/boost.mk
-include support/components/revamb.mk
+include support/components/revng.mk
 include support/components/llvmcpy.mk
 include support/components/revng-c.mk
 
 # Default targets
 # ===============
 
-$(call option,ALL,$(TOOLCHAIN_INSTALL_TARGET_FILE) test-revamb,Default targets to build)
+$(call option,ALL,$(TOOLCHAIN_INSTALL_TARGET_FILE) test-revng,Default targets to build)
 all: $(ALL)
 
 .PHONY: clean
@@ -128,7 +128,7 @@ clean:
 help:
 	@echo 'Welcome to the orchestra build system.'
 	@echo
-	@echo 'orchestra enables you to clone and download all the repositories necessary for rev.ng (such as our version of QEMU and LLVM, but also the core project itself, revamb).'
+	@echo 'orchestra enables you to clone and download all the repositories necessary for rev.ng (such as our version of QEMU and LLVM, but also the core project itself, revng).'
 	@echo 'Moreover, orchestra will also configure, build and install them for you.'
 	@echo 'By default, the build will take place in the `build/` directory and the files will be installed in the `root/` directory, so no root permissions are required.'
 	@echo
@@ -140,11 +140,11 @@ help:
 	@echo
 	@echo 'If you are interested only in working (and running tests) exclusively for a single architecture (e.g., MIPS), instead of running `make all`, run:'
 	@echo
-	@echo '    make toolchain/mips revamb'
+	@echo '    make toolchain/mips revng'
 	@echo
 	@echo 'To ensure everything is working properly, run:'
 	@echo
-	@echo '    make test-revamb'
+	@echo '    make test-revng'
 	@echo
 	@echo 'For further information on the components that can be built and further customization options, run:'
 	@echo

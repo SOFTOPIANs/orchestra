@@ -13,7 +13,7 @@ The most up-to-date list of dependencies not included in orchestra is available 
 # My first run
 
 ```
-make test-revamb
+make test-revng
 ```
 
 This command will fetch everything necessary, build some components and run the tests. If they pass, you're ready to go.
@@ -28,7 +28,7 @@ The primary goal of orchestra is building *components*. A *components* is basica
 
 If a component is associated to a source, by default, it will be cloned/extracted in the orchestra root directory.
 
-Example of components are `llvm`, `qemu`, `revamb` and `toolchain/arm/gcc`. For an updated list, run `make help-components`.
+Example of components are `llvm`, `qemu`, `revng` and `toolchain/arm/gcc`. For an updated list, run `make help-components`.
 
 ## Builds
 
@@ -47,7 +47,7 @@ For a complete list of components, builds and default builds, run `make help-com
 ## Actions
 
 *Components* and *builds* can have actions. An action is a Makefile target.
-Each action ensures that all the depending actions have been executed before running. For example, before building revamb, LLVM will be installed.
+Each action ensures that all the depending actions have been executed before running. For example, before building revng, LLVM will be installed.
 
 ### Component actions
 
@@ -74,12 +74,12 @@ For instance `make llvm` will install the default LLVM build. This means that, d
 
 orchestra is able to build from source each component or fetch it from a repository containing binary archives. This repository is `binary-archives` and is cloned in the root. It is an LFS repository, which can become **very** large, but orchestra never fetches all the LFS files at once, it fetches them as needed.
 
-By default all the components are fetched from the binary archives, except for the two project we work on directly the most: QEMU and revamb. Binary archives can save a large amount of space and time.
+By default all the components are fetched from the binary archives, except for the two project we work on directly the most: QEMU and revng. Binary archives can save a large amount of space and time.
 
 If you want to build everything from source, simply set the `BINARY_COMPONENTS` to an empty string:
 
 ```
-make revamb BINARY_COMPONENTS=""
+make revng BINARY_COMPONENTS=""
 ```
 
 # Recap: directories overview
@@ -94,7 +94,7 @@ orchestra                      orchestra's root directory.
 │
 ├── qemu                       The QEMU component source directory (git repository).
 ├── llvm                       The LLVM component source directory (git repository).
-├── revamb                     The revamb component source directory (git repository).
+├── revng                      The revng component source directory (git repository).
 ├── ...                        Other component source directories.
 │
 ├── source-archives            Directory containing the source tarballs for projects not built from a git repository.
@@ -140,8 +140,8 @@ orchestra has a large set of options that can be configured through environment 
 Launching build commands bypassing orchestra is fully supported. Just make sure to load the `environment` script in the orchestra's root directory before doing things manually.
 
 ```
-make configure-revamb
+make configure-revng
 . ./environment
-cd build/revamb/
+cd build/revng/
 make
 ```
