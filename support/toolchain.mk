@@ -154,6 +154,9 @@ define do-configure-$(TOOLCHAIN_TARGET_PREFIX)gcc
 	        --disable-libquadmath \
 	        --enable-lto \
 	        --disable-libsanitizer \
+	        --with-mpfr="$(INSTALL_PATH)" \
+	        --with-mpc="$(INSTALL_PATH)" \
+	        --with-gmp="$(INSTALL_PATH)" \
 	        $(EXTRA_GCC_CONFIGURE_OPTIONS) \
 	        $(3) \
 	        CFLAGS="-w -ggdb3 -O2" CXXFLAGS="-w -ggdb3 -O2"

@@ -15,9 +15,7 @@ apt-get install --no-install-recommends --yes \
   gawk \
   git \
   libglib2.0-dev \
-  libgmp-dev \
-  libmpc-dev \
-  libmpfr-dev \
+  m4 \
   pkg-config \
   python \
   python-cffi \

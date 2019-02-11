@@ -31,4 +31,6 @@ $(eval DYNAMIC := $($(TMP)_DYNAMIC))
 )
 endef
 
+include support/components/toolchains-dependencies.mk
+
 include support/components/toolchains-list.mk
