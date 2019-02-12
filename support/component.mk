@@ -174,12 +174,19 @@ endef
 # TODO: Detect if a clone fails due to a missing repository or connection issues.
 #       Looking for the "Connection refused" string in the output seems to be the most reliable approach.
 # TODO: Clone and create a remote the same name as the source one.
+
+# $(1): remote path of the repository to clone
+# $(2): clone destination path
+define clone-remote
+	$(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),GIT_LFS_SKIP_SMUDGE=1 git clone $(1) $(2)); \
+	$(foreach BRANCH,$(BRANCHES),git -C $(2) checkout -b $(BRANCH) origin/$(BRANCH) || ) true
+endef
+
 # $(1): remote-relative path of the repository to clone
 # $(2): clone destination path
 define clone
-	$(call log-info,Cloning $(1) into $(2))
-	$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),$(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),GIT_LFS_SKIP_SMUDGE=1 git clone $(REMOTE_BASE_URL)$(1) $(2)) || ) false
-	$(foreach BRANCH,$(BRANCHES),git -C $(2) checkout -b $(BRANCH) origin/$(BRANCH) || ) true
+	$(call log-info,Cloning $(1) into $(2)) \
+	$(foreach REMOTE_BASE_URL,$(REMOTES_BASE_URL),$(call clone-remote,$(REMOTE_BASE_URL)$(1),$(2)) || ) false
 endef
 
 # $(1): destination
@@ -550,4 +557,11 @@ endef
 
 # Binaries
 $(BINARY_ARCHIVE_PATH)/README.md:
+	test -n $(BINARY_ARCHIVE_PATH)
+	test ! -e $(BINARY_ARCHIVE_PATH)
 	$(call clone,binary-archives,$(BINARY_ARCHIVE_PATH))
+	while test -e $(BINARY_ARCHIVE_PATH)/REDIRECT; do \
+	  NEW_REMOTE=$$(cat $(BINARY_ARCHIVE_PATH)/REDIRECT); \
+	  rm -rf $(BINARY_ARCHIVE_PATH); \
+	  $(call clone-remote,$$NEW_REMOTE,$(BINARY_ARCHIVE_PATH)); \
+	done
