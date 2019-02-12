@@ -179,6 +179,7 @@ endef
 # $(2): clone destination path
 define clone-remote
 	$(call retry,$(CLONE_ATTEMPTS_LOOP),$(CLONE_ATTEMPTS_PAUSE),GIT_LFS_SKIP_SMUDGE=1 git clone $(1) $(2)); \
+	git -C $(2) branch -m orchestra-temporary; \
 	$(foreach BRANCH,$(BRANCHES),git -C $(2) checkout -b $(BRANCH) origin/$(BRANCH) || ) true
 endef
 
