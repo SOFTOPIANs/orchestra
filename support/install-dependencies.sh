@@ -18,10 +18,11 @@ apt-get install --no-install-recommends --yes \
   m4 \
   pkg-config \
   python \
-  python-cffi \
   python-pyelftools \
-  python-pygraphviz \
-  python-setuptools \
+  python3 \
+  python3-cffi \
+  python3-pygraphviz \
+  python3-setuptools \
   sed \
   texinfo \
   valgrind \

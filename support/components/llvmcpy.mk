@@ -2,13 +2,13 @@
 # =======
 
 define do-build-llvmcpy
-	cd "$(2)" && python setup.py build --build-base "$(1)"
+	cd "$(2)" && python3 setup.py build --build-base "$(1)"
 endef
 
 define do-install-llvmcpy
 	export PYTHONPATH="$$$$DESTDIR$(INSTALL_PATH)/lib/python"; \
 	mkdir -p "$$$$PYTHONPATH"; \
-	cd "$(2)" && python setup.py build --build-base $(1) install --home "$$$$DESTDIR$(INSTALL_PATH)"
+	cd "$(2)" && python3 setup.py build --build-base $(1) install --home "$$$$DESTDIR$(INSTALL_PATH)"
 endef
 
 # $(1): source path
