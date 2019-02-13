@@ -182,22 +182,28 @@ $(call option,PUSH_BINARY_ARCHIVE_NAME,Orchestra,Name to use for commits for bin
 commit-binary-archive: $(foreach COMPONENT,$(CREATE_BINARY_ARCHIVE_COMPONENTS),$(foreach BUILD,$($(call target-to-prefix,$(COMPONENT))_BUILDS),git-add-binary-archive-$($(BUILD)_TARGET_NAME)))
 	git lfs >& /dev/null
 	cd '$(BINARY_ARCHIVE_PATH)' && $(PWD)/cleanup-binary-archives.sh
-	git -C '$(BINARY_ARCHIVE_PATH)' config user.email "$(PUSH_BINARY_ARCHIVE_EMAIL)"
-	git -C '$(BINARY_ARCHIVE_PATH)' config user.name "$(PUSH_BINARY_ARCHIVE_NAME)"
-	git -C '$(BINARY_ARCHIVE_PATH)' commit -m'Automatic binary archives'
 
-	rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc
-	touch $(BINARY_ARCHIVE_PATH)/.netrc
-	chmod 600 $(BINARY_ARCHIVE_PATH)/.netrc
-	CONTENT="$$PUSH_BINARY_ARCHIVE_NETRC" support/env-to-file.py '$(BINARY_ARCHIVE_PATH)/.netrc'
-
-	export HOME='$(BINARY_ARCHIVE_PATH)'; \
-	trap "rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc" EXIT; \
-	cd '$(BINARY_ARCHIVE_PATH)'; \
-	git lfs push --object-id $$PUSH_BINARY_ARCHIVE_REMOTE $$(git show -- $$(git diff --name-only HEAD^) | grep '^+oid' | sed 's|.*sha256:\(.*\)$$|\1|') && \
-	git push --no-verify $$PUSH_BINARY_ARCHIVE_REMOTE $$(git name-rev --name-only HEAD)
-
-	rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc
+	if ! git -C '$(BINARY_ARCHIVE_PATH)' diff --cached --quiet; then \
+	  $(call log-info,Pushing new binary archives) \
+	  git -C '$(BINARY_ARCHIVE_PATH)' config user.email "$(PUSH_BINARY_ARCHIVE_EMAIL)"; \
+	  git -C '$(BINARY_ARCHIVE_PATH)' config user.name "$(PUSH_BINARY_ARCHIVE_NAME)"; \
+	  git -C '$(BINARY_ARCHIVE_PATH)' commit -m'Automatic binary archives'; \
+	  \
+	  rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc; \
+	  touch $(BINARY_ARCHIVE_PATH)/.netrc; \
+	  chmod 600 $(BINARY_ARCHIVE_PATH)/.netrc; \
+	  CONTENT="$$PUSH_BINARY_ARCHIVE_NETRC" support/env-to-file.py '$(BINARY_ARCHIVE_PATH)/.netrc'; \
+	  \
+	  export HOME='$(BINARY_ARCHIVE_PATH)'; \
+	  trap "rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc" EXIT; \
+	  cd '$(BINARY_ARCHIVE_PATH)'; \
+	  git lfs push --object-id $$PUSH_BINARY_ARCHIVE_REMOTE $$(git show -- $$(git diff --name-only HEAD^) | grep '^+oid' | sed 's|.*sha256:\(.*\)$$|\1|') && \
+	  git push --no-verify $$PUSH_BINARY_ARCHIVE_REMOTE $$(git name-rev --name-only HEAD); \
+	  \
+	  rm -f -- $(BINARY_ARCHIVE_PATH)/.netrc; \
+	else \
+	  $(call log-info,Nothing new to push) \
+	fi
 
 # make2graph
 # ==========
