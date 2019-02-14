@@ -74,9 +74,13 @@ def get_lfs_endpoint_url(git_repo, checkout_dir):
 
     auth_header = {}
     if not (url_split.username and url_split.password):
-        auth_header, remote_path = get_lfs_api_token("git@" + host, path)
-        if remote_path:
-            assert url == remote_path
+        # TODO: this is ugly
+        try:
+            auth_header, remote_path = get_lfs_api_token("git@" + host, path)
+            if remote_path:
+                assert url == remote_path
+        except:
+            pass
     return url, auth_header
 
 
